@@ -1,0 +1,36 @@
+pretrained
+visualization
+docs
+data/
+configs
+.DS_Store
+*/.DS_Store
+ft_local
+*/ft_local
+__pycache__
+*/__pycache__
+log.txt
+log
+nohup.out
+ft_sync.sh
+
+workdir/
+train*.sh
+
+
+# Cython debug symbols
+cython_debug/
+
+# training script
+train.sh
+
+# environment test
+zz_test.py
+
+# dataset .zip
+*.zip
+*.skeleton
+
+# Temporarily ignore following
+config
+model
