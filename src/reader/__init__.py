@@ -3,7 +3,7 @@ import logging
 from .ntu_reader import NTU_Reader
 
 __generator = {
-    'ntu': NTU_Reader,
+    'ntu60': NTU_Reader,
     'ntu120': NTU_Reader
 }
 

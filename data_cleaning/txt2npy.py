@@ -105,14 +105,11 @@ def _read_skeleton(file_path, save_skelxyz=True, save_rgbxy=True, save_depthxy=T
                 del bodymat['depth_body{}'.format(each)]
     return bodymat
 
-############## Split data into the different splits (cross-view): Friday, 14th November 2025
-
-
 def main():
     parser = argparse.ArgumentParser(
         description='This code is meant to give us our data in the format we want and specify the number of classes.')
     parser.add_argument('--begin_path', type=str, default='./data',
-                        help='parent path that leads to DHCS_implement (default: /h/ola/Docs/Gith/mthSys)')
+                        help='parent path that leads to dataset')
     args = parser.parse_args()
 
     begin_path = args.begin_path
@@ -147,12 +144,11 @@ def main():
             cnt += 1
             print('file missing:',cnt)
             continue
-        #####****I can always add a code here to skip specific classes****#######(Will do that in process_skeleton.py)
-        loadname = load_txt_path+each
-        # print(each) #Remove this
+        #####****I can always add a code here to skip specific classes****#######(Will do that in process_skeleton.py) --> old comment (by me). Not relevant here. 18th Nov 2025
+        loadname = os.path.join(load_txt_path,each)
         mat = _read_skeleton(loadname,save_rgbxy=False,save_depthxy=False) #set save_rgbxy & save_depthxy as false since I would not need the values
         mat = np.array(mat)
-        save_path = save_npy_path+'{}.npy'.format(each)
+        save_path = os.path.join(save_npy_path, f'{each}.npy')
         np.save(save_path, mat)
         # raise ValueError()
     _end_toolbar()

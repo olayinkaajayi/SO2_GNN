@@ -1,206 +1,220 @@
 import os
-import json
-import pickle
 import random
 import logging
 import numpy as np
 from tqdm import tqdm
 
-ACTIVITIES = ['B1', 'F1', 'B2', 'F2', 'B3',
-              'F3', 'B4', 'F4', 'B5', 'F5']
 
-class CamD_Reader():
-    def __init__(self, dataset_root_folder, out_folder, split_ratio=0.7, **kwargs):
-        self.max_channel = 3
-        self.max_frame = 100
-        self.max_joint = 17
-        self.max_person = 6
-        self.min_frame_id = 10 # skip first n frames
-        self.last_n_frames = 4 # skip last n frames
-
-        self.dataset_root_folder = dataset_root_folder
-        self.out_folder = out_folder
-
-        # Divide train and eval samples
-        self.pose_dir = os.path.join(dataset_root_folder,'poses')
-        smp_idx = list(range(len(os.listdir(self.pose_dir))))
-        random.shuffle(smp_idx)
-        split_idx = int(len(smp_idx) * split_ratio)
-        self.training_samples = smp_idx[:split_idx]
-        self.eval_samples = smp_idx[split_idx:]
-
-        # Create label-to-idx map
-        self.class2idx = {name: i for i, name in enumerate(ACTIVITIES)}
-
-
-    def read_pose_and_object(self, pose_path, obj_path):
-        """
-        Reads pose and object JSON files and returns:
-        - skeleton_data: np.array of shape (T, M, V, C)
-        where C = [x, y, confidence]
-        - object_info: dict {"obj_name": [[x,y,confidence], [x,y,confidence], ...]}
-
-        Args:
-            pose_path (str): Path to pose JSON files.
-            obj_path (str): Directory containingPath to object JSON files.
-            T (int): Total number of frames (optional fixed length).
-            V (int): Number of joints per person.
-            M (int): Number of persons (actors).
-            C (int): Channels per joint (x, y, conf).
-
-        Returns:
-            skeleton_data (np.ndarray): shape (T, M, V, C)
-            object_info (dict): {"obj_name": [[x, y], ...]}
-        """
-
-        T, M, V, C = self.max_frame, self.max_person, self.max_joint, self.max_channel
-
-        # --- Initialize pose data array ---
-        skeleton_data = np.zeros((T, M, V, C), dtype=np.float32)
-
-        # --- Load Pose JSON ---
-        with open(pose_path, 'r') as f:
-            pose_data = json.load(f)
-
-        # Fill skeleton_data
-        frame_cnt = 0 #used to populate the skeleton array (index)
+class NTU_Reader():
+    def __init__(self, dataset_root_folder, case="view", num_class=60, dataset="ntu60",
+                 take_2_persons=True):
         
-        reduced_list = self.downsample_frames(pose_data)
-
-        for frame_data in pose_data.get("frames", {}):
-            
-            t = frame_data["frame_index"]
-
-            # Reduce frame rate
-            if t not in reduced_list:
-                continue
-            
-            for m, person in enumerate(frame_data["poses"][:M]):
-                kpts = np.array(person["keypoints"], dtype=np.float32)
-                conf = np.array(person["confidence"], dtype=np.float32)
-                # Shape: (V, 2) → stack with conf to get (V, 3)
-                joint = np.concatenate([kpts, conf[:, None]], axis=1)
-                v = min(V, joint.shape[0])
-                skeleton_data[frame_cnt, m, :v, :] = joint[:v]
-
-            frame_cnt += 1 # increase count till we get to last frame
-
-        # --- Load Object JSON ---
-        with open(obj_path, 'r') as f:
-            obj_data = json.load(f)
-
-        # Assuming one object of interest per video
-        obj_name = None
-        obj_coords = []
-        
-        for frame_data in obj_data.get("frames", []):
-
-            t = frame_data["frame_index"]
-            # Reduce frame rate
-            if t not in reduced_list:
-                continue
-
-            objects = frame_data.get("objects", [])
-            if not objects:
-                obj_coords.append([0.0, 0.0, 0.0])  # no object in frame
-                continue
-            # Pick first object (or highest confidence)
-            obj = max(objects, key=lambda o: o.get("confidence", 0))
-            if obj_name is None:
-                obj_name = obj["object_name"]
-            cx, cy = obj["center"]
-            conf = obj["confidence"]
-            obj_coords.append([float(cx), float(cy), float(conf)])
-
-        object_info = {obj_name or "unknown": obj_coords}
-
-        return skeleton_data, object_info
-
-
-    def gendata(self, phase):
-
-        res_skeleton = []
-        res_obj = []
-        group_label = []
-        video_list = np.array(os.listdir(self.pose_dir)) # use the directory for pose
-        videos = video_list[self.training_samples].tolist() if phase == 'train' else video_list[self.eval_samples].tolist()
-        
-        iterizer = tqdm(videos, dynamic_ncols=True)
-        for filename in iterizer:
-
-            video_id = filename.split('.')[0].split('_')[0] # loading from a .json file
-
-            # Skip the random walking files
-            if video_id[:-5] not in ['RED', 'YELLOW', 'BLACK', 'GREEN', 'BLUE', 'WHITE']:
-                continue
-
-            # path to joints and object files
-            joint_path = os.path.join(
-                self.dataset_root_folder, 'poses', filename)
-            object_path = os.path.join(
-                self.dataset_root_folder, 'objects', f'{video_id}_left_objects.json')
-            
-            # save group name for each video sample
-            group_label.append([self.class2idx[video_id[-5:-3]], video_id])
-                
-                
-            # Get joint/+object information
-            joint_data, object_data = self.read_pose_and_object(joint_path, object_path)
-            res_skeleton.append(joint_data)
-            res_obj.append(object_data)
-                
-        # Save label
-        os.makedirs(self.out_folder, exist_ok=True)
-        with open(os.path.join(self.out_folder, phase + '_label.pkl'), 'wb') as f:
-            pickle.dump(group_label, f)
-        
-        # Save pose data
-        res_skeleton = np.array(res_skeleton)
-        np.save(os.path.join(self.out_folder, phase + '_data.npy'), res_skeleton)
-        
-        # Save obj data
-        with open(os.path.join(self.out_folder, phase + '_object_data.json'), "w") as f:
-            json.dump(res_obj, f)
-        
-    def start(self):
-        for phase in ['train', 'eval']:
-            logging.info('Phase: {}'.format(phase))
-            self.gendata(phase)
-
-
-    def downsample_frames(self, pose_data, random_idx=False):
-        """
-        Downsample a list of video frames to a specified target length.
-        
-        Args:
-            pose_data (dict): dictionary of pose information.
-            target_frame_count (int): The desired number of frames after downsampling.
-            
-        Returns:
-            list: A uniformly downsampled list of frames.
-        """
-
-        frames_dict = pose_data.get("frames", {})
-
-        len_frames = len(frames_dict) # length of video frames
-        
-        T = len_frames - self.min_frame_id - self.last_n_frames
-
-        target_frame_count = self.max_frame
-        
-        # If the video is already short enough, return as is or pad if needed
-        if target_frame_count >= T:
-            return list(range(self.min_frame_id,T))
-        
-        if not random_idx:
-        
-            # Compute indices for uniform sampling
-            indices = [self.min_frame_id + int(i * T / target_frame_count) for i in range(target_frame_count)]
+        self.begin_path = dataset_root_folder
+        self.case = case
+        if num_class > 2:
+            self.num_class = num_class
         else:
-            indices = random.sample(range(self.min_frame_id, T), self.max_frame)
-            indices.sort()
-        
-        # Ensure last index doesn't exceed bounds
-        # indices[-1] = min(indices[-1], T - 1)
+            raise ValueError(f"Number of classes ({num_class}) should be >= 2 .")
+        self.dataset = dataset
+        self.take_2_persons = take_2_persons
 
-        return indices
+    def classes_we_have(self,npy_datalist,exclude_class):
+        """
+            This function finds all the unique classes in our dataset
+            npy_datalist: an array of strings of the name of files in our dataset
+            exclude_class: classes we wish to exclude from our dataset.
+
+            returns
+                - class list 0 to max_class
+                - data samples of class in [0,max_class]
+        """
+        max_class = self.num_class
+        #Here is a simpler implementation
+        arr = [element for element in npy_datalist if int(element[17:20]) not in exclude_class] #This removes unwanted classes
+        the_class = [int(ele[17:20]) for ele in arr] #This gets the default classes (with repetitions)
+        the_class = set(the_class) #This removes repetitions
+        the_class = list(the_class) #Converts back to a list
+        the_class.sort() #Sorts it before returning
+        #Reduce the classes further
+        arr_p = [element for element in arr if int(element[17:20]) in the_class[:max_class]]
+
+        return the_class[:max_class], arr_p
+
+
+    def get_0_to_max_class(self,classes):
+        """
+            classes is a sorted list
+            This function maps all the classes to range(0,len(classes))
+            
+            info:
+                - This is useful when we are excluding some classes (especially when considering NTU120).
+        """
+        max_class = len(classes)
+        arr = np.ones((max_class,2))
+        arr[:,1] = list(range(max_class))
+        arr[:,0] = classes
+        return arr,max_class
+
+
+    def get_dataset_partisions(self):
+
+        if self.case == "subject":
+            #subjects count: 106
+            # x_subjects = list(range(1,107))
+            x_subjects_train = [1, 2, 4, 5, 8, 9, 13, 14, 15, 16, 17, 18, 19, 25, 27,
+            28, 31, 34, 35, 38, 45, 46, 47, 49, 50, 52, 53, 54, 55, 56, 57, 58, 59,
+            70, 74, 78, 80, 81, 82, 83, 84, 85, 86, 89, 91, 92, 93, 94, 95, 97, 98, 100, 103]
+
+            return x_subjects_train
+
+            # x_subjects_test = list(set(x_subjects).difference(x_subjects_train))
+
+        elif self.case == "setup":
+            #set up count: 32
+            x_setup_train = list(range(2,33,2)) # train (even)
+
+            return x_setup_train
+            
+        elif self.case == "view":
+            #camera view --> 1: +45^deg, 2: 0^deg, 3: -45^deg
+            x_views_train = [2,3]
+            # x_views_test = [1]
+
+            return x_views_train
+        
+        else:
+            raise ValueError(f"cases are: view, subject and setup. {self.case} is a wrong option.")
+
+
+    def set_class(self, data_ent, mapped_class):
+        """
+            data_ent is a dictionary
+            mapped_class is the result of self.get_0_to_max_class
+
+            info:
+                - This is useful when we use just a part of the classes
+                - and need to order the class again [0, max_class].
+        """
+        file_name = 'file_name'
+        default_class = int(data_ent[file_name][17:20])
+        indx = np.where(mapped_class[:,0] == default_class)[0][0]
+        new_class = mapped_class[indx,1]
+        data_ent['class'] = new_class
+
+
+    def get_view_or_subj(self, data, s_V_p): # s_V_p: setup, view or person(subject)
+        """This function returns the relevant ID of the sample, for either subject, view or setup."""
+
+        try:
+            remap = {"subject": 'P', "view": 'V', "setup": 'S'}
+        except KeyError as e:
+            print(f'case should either be view, subject or setup.')
+            raise e
+
+        s_V_p = remap[s_V_p]
+
+        file_name = 'file_name'
+        name = data[file_name]
+        if s_V_p=='S': #setup
+            what_we_want = int(name[1:4])
+        elif s_V_p=='V': #camera/view
+            what_we_want = int(name[5:8])
+        elif s_V_p=='P': #person/subject
+            what_we_want = int(name[9:12])
+
+        return what_we_want
+
+    def gendata(self):
+        """
+            This function combines all the process that provides us a suitable data to work with.
+            small=True means only NTU-RGB D60 is considered
+            max_class (type: int) is the maximum class we want. Set this to 0  take all 120 classes.
+        """
+        
+        #These are the paths containing the numpy data we want
+        the_path_60 = os.path.join(self.begin_path,'raw_npy60')
+        npy_datalist_60 = os.listdir(the_path_60)
+        npy_datalist = npy_datalist_60
+
+        if self.dataset.lower() == "ntu120":
+            the_path_120 = os.path.join(self.begin_path,'raw_npy120')
+            npy_datalist_120 = os.listdir(the_path_120)
+            npy_datalist.extend(npy_datalist_120)
+
+        if not self.take_2_persons:
+            exclude_class = list(range(50,61)) + list(range(106,121)) #The action classes involving 2 persons.
+            print("REMOVING UNWANTED CLASSES...")
+        else:
+            exclude_class = []
+        
+        default_classes, npy_datalist = self.classes_we_have(npy_datalist,exclude_class) #Default classes of each sample in our dataset
+        mapped_classes,max_class = self.get_0_to_max_class(default_classes) #maps the classes to range(0,len(default_classes))
+
+        print(f"\nSize of dataset: {len(npy_datalist)}")
+        print(f"Max class is {self.num_class}.")
+
+        x_train = self.get_dataset_partisions()
+        
+        cross_x_train, cross_x_test = [], []
+
+        for each in tqdm(npy_datalist):
+
+            if each in npy_datalist_60:
+                holder = np.load(os.path.join(the_path_60,each),allow_pickle=True).item()
+                self.set_class(holder,mapped_classes)
+                
+                # put in subject or setup or view
+                if self.get_view_or_subj(holder,self.case) in x_train:
+                    cross_x_train.append(holder)
+                else:
+                    cross_x_test.append(holder)
+
+            else:
+                if self.dataset.lower() != "ntu120":
+                    continue #ensures it skips when we consider only dataset 60
+                
+                holder = np.load(os.path.join(the_path_120,each),allow_pickle=True).item()
+                self.set_class(holder,mapped_classes)
+
+                # put in subject or setup or view
+                if self.get_view_or_subj(holder,self.case) in x_train:
+                    cross_x_train.append(holder)
+                else:
+                    cross_x_test.append(holder)
+        
+        print()
+        if self.case == "subject":
+            print("\n----Returning Cross-subject split----")
+        elif self.case == "setup":
+            print("\n----Returning Cross-setup split----")
+        elif self.case == "view":
+            print("\n----Returning Cross-view split----")
+        
+        return np.array(cross_x_train), np.array(cross_x_test)
+    
+
+    def save_data(self, x_train, x_test):
+        train_file = os.path.join(self.begin_path,f"cross_{self.case}_train.npy")
+        test_file = os.path.join(self.begin_path,f"cross_{self.case}_test.npy")
+
+        if len(x_train) != 0:
+            print(f"Saving cross-{self.case} data...")
+            print(f"Train data size: {len(x_train)}")
+            print(f"Test data size: {len(x_test)}")
+
+            with open(train_file,'wb') as f:
+                np.save(f,x_train)
+            with open(test_file,'wb') as f:
+                np.save(f,x_test)
+
+        
+    def start(self):    
+        logging.info(f'Phase: Train and Test data at once.')
+        x_train, x_test = self.gendata()
+        self.save_data(x_train, x_test)
+        
+
+    def normalise_data(self, pose_data, random_idx=False):
+        """This function normalises the skeleton data."""
+
+        pass
