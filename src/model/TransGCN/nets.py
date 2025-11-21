@@ -31,7 +31,7 @@ class TransGCN(nn.Module):
 #########################################################################################
     # To-do:
     #   - correct all arguments for model. --> Done
-    #   - modify all config files.
+    #   - modify all config files. --> Done
 #########################################################################################
 
         num_input, num_channel, _, _, _ = data_shape
