@@ -6,10 +6,10 @@ import torch.nn.functional as F
 
 class SO2_GNN(torch.nn.Module):
     
-    def __init__(self, in_dim=3, hidden=64, n=4, rot_one_axis=False):
-        super().__init__()
+    def __init__(self, in_dim=3, hidden=64, angle_partitions=4, rot_one_axis=False):
+        super(SO2_GNN, self).__init__()
 
-        self.n = n # partitions of interval
+        self.n = angle_partitions # partitions of interval
         self.rot_one_axis = rot_one_axis # rotate across multiple axis
 
         self.t_k = nn.ParameterDict({
