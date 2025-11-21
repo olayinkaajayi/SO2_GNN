@@ -1,7 +1,9 @@
 from . import TransGCN
+from . import MPGCN
 
 __models = {
-    'Trans-GCN': TransGCN
+    'Trans-GCN': TransGCN,
+    'MPGCN': MPGCN
 }
 
 def create(model_name, **kwargs):
