@@ -4,7 +4,7 @@ from .graphs import Graph
 from .ntu_feeder import NTU_Feeder
 
 __data_args = {
-    'ntu': {'class': 60, 'feeder': NTU_Feeder},
+    'ntu60': {'class': 60, 'feeder': NTU_Feeder},
     'ntu120': {'class': 120, 'feeder': NTU_Feeder}
 }
 

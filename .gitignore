@@ -31,5 +31,3 @@ zz_test.py
 *.zip
 *.skeleton
 
-# Temporarily ignore following
-config
