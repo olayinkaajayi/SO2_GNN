@@ -1,29 +1,38 @@
 import torch
 from torch import nn
-from so2_gnn import SO2_GNN
+from so2_gnn import SO2_GCN
 from mlp import MLP
 
 class SO2_GCN_Block(nn.Module):
-    def __init__(self, in_channels, out_channels, heads=4, angle_partitions=4):
+    def __init__(self, in_channels, out_channels, A, so2_arg):
         super(SO2_GCN_Block).__init__()
 
+        self.heads = so2_arg['heads']
+        angle_partitions = so2_arg['angle_partitions']
+        rot_one_axis = so2_arg['rot_one_axis']
         self.in_channels = in_channels
         self.out_channels = out_channels
         o_dim = out_channels//self.heads
-        self.heads = heads
+
         if self.in_channels > 3:
             self.proj = nn.ModuleList([nn.Linear(self.in_channels,3) for _ in range(self.heads)])
-            self.gcn = nn.ModuleList([SO2_GNN(in_dim=3,hidden=o_dim, angle_partitions=angle_partitions) for _ in range(heads)])
+
+            self.gcn = nn.ModuleList( [
+                                    SO2_GCN(in_dim=3, hidden_dim=o_dim, A=A, angle_partitions=angle_partitions,
+                                            rot_one_axis=rot_one_axis)
+                                            for _ in range(self.heads)]
+                                    )
+
             self.regroup = MLP(num_layers=2, input_dim=o_dim*self.heads,
                                hidden_dim=int(0.6*self.out_channels),
                                output_dim=self.out_channels)
         else:
-            self.gcn = SO2_GNN(in_dim=3,hidden=self.out_channels, angle_partitions=angle_partitions)
+            self.gcn = SO2_GCN(in_dim=3,hidden_dim=self.out_channels, A=A, angle_partitions=angle_partitions, rot_one_axis=rot_one_axis)
 
 
     def forward(self, x, A):
 
-        if self.in_channels <= 3: # 3 because we have 3D space: x,y,z
+        if self.in_channels > 3: # 3 because we have 3D space: x,y,z
             out = []
             # May be able to avoid for loop here by putting the heads into the linear layers
             for i in range(self.heads):
@@ -41,7 +50,7 @@ class SO2_GCN_Block(nn.Module):
 
 
 class Spatial_Basic_Block(nn.Module):
-    def __init__(self, in_channels, out_channels, max_graph_distance, A, edge_importance=True, adaptive=False, **kwargs):
+    def __init__(self, in_channels, out_channels, max_graph_distance, A, edge_importance=True, adaptive=False):
         super(Spatial_Basic_Block, self).__init__()
 
         if in_channels == out_channels:
@@ -73,7 +82,7 @@ class Spatial_Basic_Block(nn.Module):
         return x
 
 class Temporal_Basic_Block(nn.Module):
-    def __init__(self, channels, temporal_window_size, stride=1, **kwargs):
+    def __init__(self, channels, temporal_window_size, stride=1):
         super(Temporal_Basic_Block, self).__init__()
 
         padding = ((temporal_window_size - 1) // 2, 0)
@@ -101,7 +110,7 @@ class Temporal_Basic_Block(nn.Module):
         return x
 
 class Temporal_MultiScale_Block(nn.Module):
-    def __init__(self, out_channels, kernel_size=3, stride=1, dilations=[1,2], residual_kernel_size=1, **kwargs):
+    def __init__(self, out_channels, kernel_size=3, stride=1, dilations=[1,2], residual_kernel_size=1):
 
         super().__init__()
         in_channels = out_channels
@@ -170,7 +179,7 @@ class Temporal_MultiScale_Block(nn.Module):
 
 
 class ST_Person_Attention(nn.Module):
-    def __init__(self, channel, parts, reduct_ratio, bias=True, **kwargs):
+    def __init__(self, channel, parts, reduct_ratio, bias=True):
         super(ST_Person_Attention, self).__init__()
 
         self.parts = parts
