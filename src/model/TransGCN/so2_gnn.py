@@ -4,10 +4,10 @@ import torch.nn.init as init
 import numpy as np
 import torch.nn.functional as F
 
-class SO2_GNN(torch.nn.Module):
+class SO2_GCN(torch.nn.Module):
     
-    def __init__(self, in_dim=3, hidden=64, angle_partitions=4, rot_one_axis=False):
-        super(SO2_GNN, self).__init__()
+    def __init__(self, in_dim, hidden_dim, A, angle_partitions=4, rot_one_axis=False):
+        super(SO2_GCN, self).__init__()
 
         self.n = angle_partitions # partitions of interval
         self.rot_one_axis = rot_one_axis # rotate across multiple axis
@@ -26,14 +26,16 @@ class SO2_GNN(torch.nn.Module):
         }) if not rot_one_axis else nn.ParameterDict({
             'y': nn.Parameter(torch.randn(self.n))}) # should each lie in the set [-1,+1]
         
-        self.weight_mat = nn.ParameterList([nn.Linear(in_dim, hidden, bias=False)
-                                            for _ in range(3)]) if not rot_one_axis else nn.Linear(in_dim, hidden, bias=False)
+        self.weight_mat = nn.ParameterList([nn.Linear(in_dim, hidden_dim, bias=False)
+                                            for _ in range(3)]) if not rot_one_axis else nn.Linear(in_dim, hidden_dim, bias=False)
 
         for m in self.weight_mat:
             init.xavier_uniform_(m.weight, gain=init.calculate_gain('relu')) # Use relu gain if ReLU follows
 
+        self.register_buffer('A', A) # Adjacency matrix
 
-    def forward(self, x, A):
+
+    def forward(self, x):
         """This function implements the SO(2)-GCN model designed for different axis of rotations."""
 
         RxW = 0
@@ -42,9 +44,9 @@ class SO2_GNN(torch.nn.Module):
             for i in range(len(ax)):
                 RxW += self.weight_mat[i](self.R_t(axis=ax[i])@x)
         else:
-            RxW = self.weight_mat(self.R_t(axis='y')@x)
+            RxW = self.weight_mat(self.R_t(x, axis='y'))
 
-        D_A_D_RxW = self.get_normalized_adjacency(A, batch_size=x.size(0))@RxW
+        D_A_D_RxW = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@RxW
 
         out = F.relu(D_A_D_RxW)
 
@@ -52,7 +54,7 @@ class SO2_GNN(torch.nn.Module):
 
 
 
-    def R_t(self, axis='y'):
+    def R_t(self, x, axis='y'):
         """This function helps us achieve rotation equivariance."""
         rotation_90_deg = self.rot_mat(axis=axis)
         
@@ -69,11 +71,13 @@ class SO2_GNN(torch.nn.Module):
 
             rotate_sum += rotate
 
-        return rotate
+        return x.matmul(rotate)
 
     
     def rot_mat(self, axis='y'):
         """Provides the rotation matrix as required."""
+        # We can also use a scaling matrix, which would be useful 
+        # for "in the wild" datasets e.g. Kinetics400 
 
         rot = torch.zeros([self.n,self.n])
 
