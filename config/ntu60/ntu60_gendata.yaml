@@ -1,0 +1,12 @@
+# Setting
+seed: 1
+debug: False
+work_dir: ./workdir
+
+dataset: ntu60
+dataset_args:
+  dataset_root_folder: ./data
+  case: view
+  num_class: 60
+  dataset: ntu60
+  take_2_persons: True
