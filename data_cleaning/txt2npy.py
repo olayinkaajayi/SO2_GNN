@@ -155,3 +155,20 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# In the InfoGCN code for pre-processing the skeleton, there was one script to load and (properly) save the skeletons (in a dictionary)
+# for further pre-processing. And there was another script for "denoising" the skeleton by:
+# 1. removing missing frames,
+# 2. removing samples with length less than a threshold,
+# 3. keep only skeletons with less "spread",
+# 4. remove skeletons that are above a certain spread.
+#
+# And finally, one more script to "transform" the sequence. This involves rotation
+# (such that all skeletons face same direction) and other such "transformations".
+# It also includes a function to make all sample length (time) the same (max_time=300).
+# There is also a function that does "translation" normalisation, with reference to the first skeleton in the sequence.
+# It is within the Feeder of the dataset that the sample length is trimmed down or upsampled.
+#
+# Hence, it appears I would have to use the InfoGCN pre-processing, and gradually scale back any of the pre-processing I do not want.
+#
+# My current research work is focused on applying a deep learning model to the skeletons without having to perform any of those transformations.
