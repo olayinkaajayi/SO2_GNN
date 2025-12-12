@@ -4,9 +4,7 @@ import os
 import os.path as osp
 import numpy as np
 import pickle
-import random
 import logging
-from tqdm import tqdm
 
 ###--------------------------------------------------------------------------------
 # From the InfoGCN pre-processing script, this is the one for "denoising" the skeleton by:
@@ -15,12 +13,6 @@ from tqdm import tqdm
 # 3. keep only skeletons with less "spread",
 # 4. remove skeletons that are above a certain spread.
 ###--------------------------------------------------------------------------------
-
-# And finally, one more script to "transform" the sequence. This involves rotation
-# (such that all skeletons face same direction) and other such "transformations".
-# It also includes a function to make all sample length (time) the same (max_time=300).
-# There is also a function that does "translation" normalisation, with reference to the first skeleton in the sequence.
-# It is within the Feeder of the dataset that the sample length is trimmed down or upsampled.
 #
 # We are using the InfoGCN pre-processing, and would gradually scale back any of the pre-processing I do not want.
 #
