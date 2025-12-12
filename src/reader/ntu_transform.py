@@ -26,7 +26,7 @@ from utils import create_aligned_dataset
 
 
 class NTU_Seq_Transform():
-    def __init__(self, stat_path, data_path = './data'):
+    def __init__(self, evaluations, transform_flag, stat_path, data_path = './data'):
         
         stat_path = osp.join(data_path, 'statistics')
         self.setup_file = osp.join(stat_path, 'setup.txt')
@@ -41,6 +41,11 @@ class NTU_Seq_Transform():
         self.frames_file = osp.join(denoised_path, 'frames_cnt.txt')
 
         self.save_path = data_path
+        self.evaluations = evaluations #['CS', 'CV']
+
+        # TODO : set transform_flag dictionary in config file. Default all to 'True'
+        self.seq_transl_flag = transform_flag['translation']
+        self.seq_align_flag = transform_flag['orient']
 
 
     def remove_nan_frames(self, ske_name, ske_joints, nan_logger):
@@ -57,6 +62,11 @@ class NTU_Seq_Transform():
         return ske_joints[valid_frames]
 
     def seq_translation(self, skes_joints):
+        """This function performs normalisation."""
+
+        if not self.seq_transl_flag:
+            return skes_joints
+
         for idx, ske_joints in enumerate(skes_joints):
             num_frames = ske_joints.shape[0]
             num_bodies = 1 if ske_joints.shape[1] == 75 else 2
@@ -134,16 +144,14 @@ class NTU_Seq_Transform():
             num_frames = ske_joints.shape[0]
             num_bodies = 1 if ske_joints.shape[1] == 75 else 2
 
-    ########################################################
             if num_bodies == 1:
-                # This is where you can implement the repeat skeleton for your model
-                # Replace np.zeros_like(ske_joints) with ske_joints
+                # np.zeros_like(ske_joints) gives zeros to the second actor
                 aligned_skes_joints[idx, :num_frames] = np.hstack((ske_joints,
                                                                 np.zeros_like(ske_joints)))
             else:
                 aligned_skes_joints[idx, :num_frames] = ske_joints
 
-        return aligned_skes_joints
+        return aligned_skes_joints # size: N x max_num_frames x 150
 
 
     def one_hot_vector(self, labels):
@@ -236,7 +244,6 @@ class NTU_Seq_Transform():
         label = np.loadtxt(self.label_file, dtype=int) - 1  # action label: 0~59
 
         frames_cnt = np.loadtxt(self.frames_file, dtype=int)  # frames_cnt
-        skes_name = np.loadtxt(self.skes_name_file, dtype=np.string_)
 
         with open(self.raw_skes_joints_pkl, 'rb') as fr:
             skes_joints = pickle.load(fr)  # a list
@@ -245,13 +252,11 @@ class NTU_Seq_Transform():
 
         skes_joints = self.align_frames(skes_joints, frames_cnt)  # aligned to the same frame length
 
-        evaluations = ['CS', 'CV']
-        for evaluation in evaluations:
+        for evaluation in self.evaluations:
             self.split_dataset(skes_joints, label, performer, camera, evaluation, self.save_path)
 
-        # osp.join(save_path,'NTU60_%s.npz' % evaluation)
-        create_aligned_dataset(file_list=[osp.join(self.save_path,'NTU60_CS.npz'),
-                                            osp.join(self.save_path,'NTU60_CV.npz')])
+            file = osp.join(self.save_path,'NTU60_%s.npz' % evaluation)
+            create_aligned_dataset(file_list=[file], align=self.seq_align_flag)
 
 
         
