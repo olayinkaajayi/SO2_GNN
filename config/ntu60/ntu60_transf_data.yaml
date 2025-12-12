@@ -8,5 +8,5 @@ dataset_args:
   dataset_root_folder: ./data
   case: view
   num_class: 60
-  dataset: ntu60-transform
+  dataset: ntu60
   take_2_persons: True
