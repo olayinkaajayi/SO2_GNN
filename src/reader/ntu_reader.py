@@ -30,7 +30,7 @@ from tqdm import tqdm
 
 
 class NTU_Reader():
-    def __init__(self, thresholds, data_path = './data', raw_data_file='raw_skes_data.pkl'):
+    def __init__(self, thresholds, denoise_flag, data_path = './data', raw_data_file='raw_skes_data.pkl'):
         
         self.raw_data_file = osp.join(data_path, 'raw_data', raw_data_file)
         
@@ -50,9 +50,12 @@ class NTU_Reader():
         self.noise_mot_thres_lo = thresholds['noise_mot_thres_lo'] #0.089925
         self.noise_mot_thres_hi = thresholds['noise_mot_thres_hi'] #2
 
-        self.init_loggers()
+        # TODO : set denoise_flag dictionary in config file. Default all to 'True'
+        self.denoise_len_flag = denoise_flag['length']
+        self.denoise_spr_flag = denoise_flag['spread']
+        self.denoise_mot_flag = denoise_flag['motion'] # original code does not denoise by motion
 
-        # TODO : Now set up flags to decide which denosing we want.
+        self.init_loggers()
 
 
     def init_loggers(self):
@@ -105,14 +108,17 @@ class NTU_Reader():
 
         """
         noise_info = str()
-        new_bodies_data = bodies_data.copy()
-        for (bodyID, body_data) in new_bodies_data.items():
-            length = len(body_data['interval'])
-            if length <= self.noise_len_thres:
-                noise_info += 'Filter out: %s, %d (length).\n' % (bodyID, length)
-                self.noise_len_logger.info('{}\t{}\t{:.6f}\t{:^6d}'.format(ske_name, bodyID,
-                                                                    body_data['motion'], length))
-                del bodies_data[bodyID]
+
+        if self.denoise_len_flag: # only if we wish to denoise by length
+            new_bodies_data = bodies_data.copy()
+            for (bodyID, body_data) in new_bodies_data.items():
+                length = len(body_data['interval'])
+                if length <= self.noise_len_thres:
+                    noise_info += 'Filter out: %s, %d (length).\n' % (bodyID, length)
+                    self.noise_len_logger.info('{}\t{}\t{:.6f}\t{:^6d}'.format(ske_name, bodyID,
+                                                                        body_data['motion'], length))
+                    del bodies_data[bodyID]
+
         if noise_info != '':
             noise_info += '\n'
 
@@ -146,29 +152,29 @@ class NTU_Reader():
         noise_info = str()
         denoised_by_spr = False  # mark if this sequence has been processed by spread.
 
-        new_bodies_data = bodies_data.copy()
-        # for (bodyID, body_data) in bodies_data.items():
-        for (bodyID, body_data) in new_bodies_data.items():
-            if len(bodies_data) == 1:
-                break
-            valid_frames = self.get_valid_frames_by_spread(body_data['joints'].reshape(-1, 25, 3))
-            num_frames = len(body_data['interval'])
-            num_noise = num_frames - len(valid_frames)
-            if num_noise == 0:
-                continue
+        if self.denoise_spr_flag:
+            new_bodies_data = bodies_data.copy()
+            #-------------------------------------------------
+            for (bodyID, body_data) in new_bodies_data.items():
+                if len(bodies_data) == 1:
+                    break
+                valid_frames = self.get_valid_frames_by_spread(body_data['joints'].reshape(-1, 25, 3))
+                num_frames = len(body_data['interval'])
+                num_noise = num_frames - len(valid_frames)
+                if num_noise == 0:
+                    continue
 
-            ratio = num_noise / float(num_frames)
-            motion = body_data['motion']
-            if ratio >= self.noise_spr_thres2:  # 0.69754
-                del bodies_data[bodyID]
-                denoised_by_spr = True
-                noise_info += 'Filter out: %s (spread rate >= %.2f).\n' % (bodyID, self.noise_spr_thres2)
-                self.noise_spr_logger.info('%s\t%s\t%.6f\t%.6f' % (ske_name, bodyID, motion, ratio))
-            else:  # Update motion
-                joints = body_data['joints'].reshape(-1, 25, 3)[valid_frames]
-                body_data['motion'] = min(motion, np.sum(np.var(joints.reshape(-1, 3), axis=0)))
-                noise_info += '%s: motion %.6f -> %.6f\n' % (bodyID, motion, body_data['motion'])
-                # TODO: Consider removing noisy frames for each bodyID
+                ratio = num_noise / float(num_frames)
+                motion = body_data['motion']
+                if ratio >= self.noise_spr_thres2:  # 0.69754
+                    del bodies_data[bodyID]
+                    denoised_by_spr = True
+                    noise_info += 'Filter out: %s (spread rate >= %.2f).\n' % (bodyID, self.noise_spr_thres2)
+                    self.noise_spr_logger.info('%s\t%s\t%.6f\t%.6f' % (ske_name, bodyID, motion, ratio))
+                else:  # Update motion
+                    joints = body_data['joints'].reshape(-1, 25, 3)[valid_frames]
+                    body_data['motion'] = min(motion, np.sum(np.var(joints.reshape(-1, 3), axis=0)))
+                    noise_info += '%s: motion %.6f -> %.6f\n' % (bodyID, motion, body_data['motion'])
 
         if noise_info != '':
             noise_info += '\n'
@@ -220,7 +226,7 @@ class NTU_Reader():
         # Step 2: Denoising based on spread.
         bodies_data, noise_info_spr, denoised_by_spr = self.denoising_by_spread(ske_name, bodies_data)
 
-        if len(bodies_data) == 1:
+        if len(bodies_data) == 1:   # only has one bodyID left after step 2
             return bodies_data.items(), noise_info_len + noise_info_spr
 
         bodies_motion = dict()  # get body motion
@@ -228,8 +234,6 @@ class NTU_Reader():
             bodies_motion[bodyID] = body_data['motion']
 
         # Sort bodies based on the motion
-        # bodies_motion = sorted(bodies_motion.items(), key=lambda x, y: cmp(x[1], y[1]), reverse=True)
-
         bodies_motion = sorted(bodies_motion.items(), key=lambda x: x[1], reverse=True)
         denoised_bodies_data = list()
         for (bodyID, _) in bodies_motion:
@@ -290,8 +294,8 @@ class NTU_Reader():
         if num_missing > 0:  # Update joints and colors
             joints = joints[valid_indices]
             colors[missing_indices] = np.nan
-            global missing_count
-            missing_count += 1
+            # global missing_count
+            self.missing_count += 1
             self.missing_skes_logger.info('{}\t{:^10d}\t{:^11d}'.format(ske_name, num_frames, num_missing))
 
         return joints, colors
@@ -330,7 +334,7 @@ class NTU_Reader():
         bodies_data, noise_info = self.denoising_bodies_data(bodies_data)  # Denoising data
         bodies_info += noise_info
 
-        bodies_data = list(bodies_data)
+        bodies_data = list(bodies_data) # redundant
         if len(bodies_data) == 1:  # Only left one actor after denoising
             if label >= 50:  # DEBUG: Denoising failed for two-subjects action
                 self.fail_logger_2.info(ske_name)
@@ -434,22 +438,23 @@ class NTU_Reader():
             if (idx + 1) % 1000 == 0:
                 print('Processed: %.2f%% (%d / %d), ' % \
                     (100.0 * (idx + 1) / num_skes, idx + 1, num_skes) + \
-                    'Missing count: %d' % missing_count)
+                    'Missing count: %d' % self.missing_count)
 
         raw_skes_joints_pkl = osp.join(self.save_path, 'raw_denoised_joints.pkl')
         with open(raw_skes_joints_pkl, 'wb') as f:
             pickle.dump(raw_denoised_joints, f, pickle.HIGHEST_PROTOCOL)
 
-        raw_skes_colors_pkl = osp.join(self.save_path, 'raw_denoised_colors.pkl')
-        with open(raw_skes_colors_pkl, 'wb') as f:
-            pickle.dump(raw_denoised_colors, f, pickle.HIGHEST_PROTOCOL)
+        # We do not need colour for our model
+        # raw_skes_colors_pkl = osp.join(self.save_path, 'raw_denoised_colors.pkl')
+        # with open(raw_skes_colors_pkl, 'wb') as f:
+        #     pickle.dump(raw_denoised_colors, f, pickle.HIGHEST_PROTOCOL)
 
         frames_cnt = np.array(frames_cnt, dtype=int)
         np.savetxt(osp.join(self.save_path, 'frames_cnt.txt'), frames_cnt, fmt='%d')
 
         print('Saved raw denoised positions of {} frames into {}'.format(np.sum(frames_cnt),
                                                                         raw_skes_joints_pkl))
-        print('Found %d files that have missing data' % missing_count)
+        print('Found %d files that have missing data' % self.missing_count)
 
 
 
