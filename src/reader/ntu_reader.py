@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 class NTU_Reader():
     def __init__(self, dataset_root_folder, case="view", num_class=60, dataset="ntu60",
-                 take_2_persons=True):
+                 take_2_persons=True, get_distribution=False):
         
         self.begin_path = dataset_root_folder
         self.case = case
@@ -17,6 +17,7 @@ class NTU_Reader():
             raise ValueError(f"Number of classes ({num_class}) should be >= 2 .")
         self.dataset = dataset
         self.take_2_persons = take_2_persons
+        self.get_distribution = get_distribution
 
     def classes_we_have(self,npy_datalist,exclude_class):
         """
@@ -53,7 +54,7 @@ class NTU_Reader():
         arr = np.ones((max_class,2))
         arr[:,1] = list(range(max_class))
         arr[:,0] = classes
-        return arr,max_class
+        return arr
 
 
     def get_dataset_partisions(self):
@@ -148,7 +149,7 @@ class NTU_Reader():
             exclude_class = []
         
         default_classes, npy_datalist = self.classes_we_have(npy_datalist,exclude_class) #Default classes of each sample in our dataset
-        mapped_classes,max_class = self.get_0_to_max_class(default_classes) #maps the classes to range(0,len(default_classes))
+        mapped_classes = self.get_0_to_max_class(default_classes) #maps the classes to range(0,len(default_classes))
 
         print(f"\nSize of dataset: {len(npy_datalist)}")
         print(f"Max class is {self.num_class}.")
