@@ -14,6 +14,12 @@ def main():
         g = Generator(args)
         g.start()
 
+    elif args.transform_data:
+        # This would add translation, alignment (and rotation) to the skeletons.
+        # It would also provide us with the train-test split: x-view, x-sub
+        g = Generator(args)
+        g.start()
+
     elif args.extract:
         if args.extract:
             p = Processor(args)
