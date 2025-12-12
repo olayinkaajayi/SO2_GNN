@@ -16,3 +16,5 @@ def create(args):
         logging.error('Error: Do NOT exist this dataset: {}!'.format(dataset))
         raise ValueError()
     return __generator[dataset](**dataset_args)
+
+    # The flags to decide what denoising we want, should be included in the dataset_args variable.
