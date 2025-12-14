@@ -22,11 +22,11 @@ import logging
 
 
 class NTU_Reader():
-    def __init__(self, thresholds, denoise_flag, data_path = './data', raw_data_file='raw_skes_data.pkl'):
+    def __init__(self, thresholds, denoise_flag, save_path, data_path, raw_data_file):
         
-        self.raw_data_file = osp.join(data_path, 'raw_data', raw_data_file)
+        self.raw_data_file = osp.join(data_path, raw_data_file)
         
-        self.save_path = osp.join(data_path, 'denoised_data')
+        self.save_path = osp.join(save_path, 'denoised_data')
         if not osp.exists(self.save_path):
             os.mkdir(self.save_path)
 
@@ -35,18 +35,15 @@ class NTU_Reader():
             os.mkdir(self.actors_info_dir)
 
         self.missing_count = 0
-        # TODO : set threshold dictionary in config file
         self.noise_len_thres = thresholds['noise_len_thres'] #11
         self.noise_spr_thres1 = thresholds['noise_spr_thres1'] #0.8
         self.noise_spr_thres2 = thresholds['noise_spr_thres2'] #0.69754
         self.noise_mot_thres_lo = thresholds['noise_mot_thres_lo'] #0.089925
         self.noise_mot_thres_hi = thresholds['noise_mot_thres_hi'] #2
 
-        # TODO : set denoise_flag dictionary in config file. Default all to 'True'
         self.denoise_len_flag = denoise_flag['length']
         self.denoise_spr_flag = denoise_flag['spread']
-        self.denoise_mot_flag = denoise_flag['motion'] # original code does not denoise by motion
-
+        
         self.init_loggers()
 
 

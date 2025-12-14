@@ -26,9 +26,9 @@ from utils import create_aligned_dataset
 
 
 class NTU_Seq_Transform():
-    def __init__(self, evaluations, transform_flag, stat_path, data_path = './data'):
+    def __init__(self, evaluations, transform_flag, stat_path, data_path, save_path):
         
-        stat_path = osp.join(data_path, 'statistics')
+        stat_path = osp.join(stat_path, 'statistics')
         self.setup_file = osp.join(stat_path, 'setup.txt')
         self.camera_file = osp.join(stat_path, 'camera.txt')
         self.performer_file = osp.join(stat_path, 'performer.txt')
@@ -40,10 +40,12 @@ class NTU_Seq_Transform():
         self.raw_skes_joints_pkl = osp.join(denoised_path, 'raw_denoised_joints.pkl')
         self.frames_file = osp.join(denoised_path, 'frames_cnt.txt')
 
-        self.save_path = data_path
+        self.save_path = save_path
+        if not osp.exists(self.save_path):
+            os.mkdir(self.save_path)
+
         self.evaluations = evaluations #['CS', 'CV']
 
-        # TODO : set transform_flag dictionary in config file. Default all to 'True'
         self.seq_transl_flag = transform_flag['translation']
         self.seq_align_flag = transform_flag['orient']
 

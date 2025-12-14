@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-from so2_gnn import SO2_GCN
-from mlp import MLP
+from src.model.TransGCN.so2_gnn import SO2_GCN
+from src.model.mlp import MLP
 
 class SO2_GCN_Block(nn.Module):
     def __init__(self, in_channels, out_channels, A, so2_arg):
