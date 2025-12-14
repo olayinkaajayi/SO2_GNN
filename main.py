@@ -19,11 +19,11 @@ def main():
         # It would also provide us with the train-test split: x-view, x-sub
         g = Generator(args)
         g.start()
+        print("\n****Tranformation Complete!****")
 
     elif args.extract:
-        if args.extract:
-            p = Processor(args)
-            p.extract()
+        p = Processor(args)
+        p.extract()
 
     else:
         p = Processor(args)
@@ -46,6 +46,7 @@ def init_parser():
     parser.add_argument('--evaluate', '-e', default=False, action='store_true', help='Evaluate')
     parser.add_argument('--extract', '-ex', default=False, action='store_true', help='Extract')
     parser.add_argument('--generate_data', '-gd', default=False, action='store_true', help='Generate skeleton data')
+    parser.add_argument('--transform_data', '-td', default=False, action='store_true', help='Transform skeleton data')
 
     # Dataloader
     parser.add_argument('--dataset', '-d', type=str, default='', help='Select dataset')
