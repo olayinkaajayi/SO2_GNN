@@ -126,11 +126,11 @@ if __name__ == '__main__':
     #
     # To-do: Download statistics folder content
     #
-    data_path = './data'
+    data_path = './data/nturgbd_raw'
     save_path = data_path
 
     skes_path = osp.join(data_path,'nturgb+d_skeletons/')
-    stat_path = osp.join(save_path, 'statistics')
+    stat_path = osp.join(save_path, 'ntu', 'statistics')
 
     if not osp.exists(osp.join(data_path,'raw_data')):
         os.makedirs(osp.join(data_path,'raw_data'))
