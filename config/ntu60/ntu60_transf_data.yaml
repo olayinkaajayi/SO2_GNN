@@ -3,10 +3,17 @@ seed: 1
 debug: False
 work_dir: ./workdir
 
-dataset: ntu60
+dataset: ntu60-transform
 dataset_args:
-  dataset_root_folder: ./data
-  case: view
-  num_class: 60
-  dataset: ntu60
-  take_2_persons: True
+  # Heuristics threshold
+  evaluations:
+            - CV
+            # - CS
+
+  # Flags to select denoising techniques
+  transform_flag:
+    translation: True
+    orient: True
+  stat_path: ./data/ntu
+  data_path: ./data
+  save_path: ./data/ntu_ready

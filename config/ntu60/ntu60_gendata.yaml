@@ -5,8 +5,18 @@ work_dir: ./workdir
 
 dataset: ntu60
 dataset_args:
-  dataset_root_folder: ./data
-  case: view
-  num_class: 60
-  dataset: ntu60-transform
-  take_2_persons: True
+  # Heuristics threshold
+  thresholds:
+    noise_len_thres: 11
+    noise_spr_thres1: 0.8
+    noise_spr_thres2: 0.69754
+    noise_mot_thres_lo: 0.089925
+    noise_mot_thres_hi: 2
+
+  # Flags to select denoising techniques
+  denoise_flag:
+    length: True
+    spread: True
+  save_path: ./data
+  data_path: ./data/nturgbd_raw/raw_data
+  raw_data_file: raw_skes_data.pkl
