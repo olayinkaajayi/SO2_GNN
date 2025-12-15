@@ -73,7 +73,7 @@ class Initializer():
             self.device =  torch.device('cpu')
 
     def init_dataloader(self):
-        dataset_name = self.args.dataset.split('-')[0]
+        dataset_name = self.args.dataset
         dataset_args = self.args.dataset_args
         dataset_args['debug'] = self.args.debug
         self.train_batch_size = dataset_args['train_batch_size']
