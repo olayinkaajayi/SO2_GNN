@@ -1,38 +1,43 @@
-import logging
 import numpy as np
-import os
+import torch
 from torch.utils.data import Dataset
-from .utils import graph_processing, multi_input
+from . import tools
 
 
 class NTU_Feeder(Dataset):
-    def __init__(self, phase, graph, root_folder, inputs, debug, repeat, max_frame=80, processing='default', person_id=[0,1], input_dims=3, **kwargs):
+    def __init__(self, phase, graph, data_path, p_interval=1, p_interval_test=1, random_shift=False,
+                 random_move=False, random_rot=False, window_size=-1, normalization=False,
+                 vel=False, sort=False, **kwargs):
+        """
+        :param data_path:
+        :param phase: training set or test set
+        :param random_shift: If true, randomly pad zeros at the begining or end of sequence
+        :param random_move:
+        :param random_rot: rotate skeleton around xyz axis
+        :param window_size: The length of the output sequence
+        :param normalization: If true, normalize input sequence
+        :param vel: use motion modality or not
+        """
+        self.graph = graph
+        self.data_path = data_path
         self.phase = phase
-        self.inputs = inputs
-        self.processing = processing
-        self.debug = debug
-        self.repeat = repeat # repeat skeletons
-        
-        self.graph = graph.graph
-        self.conn = graph.connect_joint
-        self.center = graph.center
-        self.num_node = graph.num_node
-        self.num_person = graph.num_person
-        
-        self.input_dims = input_dims # expected to be 3 (x,y,z)
-        self.max_frame = max_frame
-        self.M = len(person_id)
-        self.datashape = self.get_datashape()
+        self.random_shift = random_shift
+        self.random_move = random_move
+        self.window_size = window_size
+        self.p_interval = p_interval if phase == "train" else p_interval_test
+        self.random_rot = random_rot
+        self.vel = vel
+        self.load_data()
 
-        data_path = os.path.join(root_folder,'_data.npy')
-        # label_path = os.path.join(root_folder, phase+'_label.pkl')
+        if sort:
+            self.get_n_per_class()
+            self.sort()
+        if normalization:
+            self.get_mean_map()
 
-        self.load_data(data_path)
-
-
-    def load_data(self, data_path):
+    def load_data(self):
         # data: N C V T M
-        npz_data = np.load(data_path)
+        npz_data = np.load(self.data_path)
         if self.phase == 'train':
             self.data = npz_data['x_train']
             self.label = np.argmax(npz_data['y_train'], axis=-1)
@@ -40,71 +45,75 @@ class NTU_Feeder(Dataset):
             self.data = npz_data['x_test']
             self.label = np.argmax(npz_data['y_test'], axis=-1)
         else:
-            raise NotImplementedError('data phase only supports train/test')
+            raise NotImplementedError('data phase only supports train/eval')
         nan_out = np.isnan(self.data.mean(-1).mean(-1))==False
         self.data = self.data[nan_out]
         self.label = self.label[nan_out]
         self.sample_name = [self.phase + '_' + str(i) for i in range(len(self.data))]
         N, T, _ = self.data.shape
-        self.data = self.data.reshape((N, T, 2, 25, 3)).transpose(0, 4, 1, 3, 2) # N C T V M
+        self.data = self.data.reshape((N, T, 2, 25, 3)).transpose(0, 4, 1, 3, 2) # shape: N, C, T, V, M
+
+        # num_input, num_channel, _, _, _ : dimension info used by model
+        N,C,T,V,M = self.data.shape
+        self.datashape = (1, C, self.window_size, V, M) # 1 corresponds to one modality: joint
         
-            
+
+    def get_n_per_class(self):
+        self.n_per_cls = np.zeros(len(self.label), dtype=int)
+        for label in self.label:
+            self.n_per_cls[label] += 1
+        self.csum_n_per_cls = np.insert(np.cumsum(self.n_per_cls), 0, 0)
+
+    def sort(self):
+        sorted_idx = self.label.argsort()
+        self.data = self.data[sorted_idx]
+        self.label = self.label[sorted_idx]
+
+    def get_mean_map(self):
+        data = self.data
+        N, C, T, V, M = data.shape
+        self.mean_map = data.mean(axis=2, keepdims=True).mean(axis=4, keepdims=True).mean(axis=0)
+        self.std_map = data.transpose((0, 2, 4, 1, 3)).reshape((N * T * M, C * V)).std(axis=0).reshape((C, 1, V, 1))
+
     def __len__(self):
         return len(self.label)
 
-    def __getitem__(self, idx):
-        # (C, T, V, M)
-        pose_data = np.array(self.data[idx])
-        label = self.label[idx]
+    def __iter__(self):
+        return self
+
+    def __getitem__(self, index):
+        # Ensure that data_numpy: Tx(MVC) is reshaped to CxTxVxM
+        data_numpy = self.data[index]
+        label = self.label[index]
+
+        data_numpy = np.array(data_numpy) # C, T, V, M
+        valid_frame_num = np.sum(data_numpy.sum(0).sum(-1).sum(-1) != 0)
         
-        pose_data = graph_processing(pose_data, self.graph, self.processing, no_changes=True)
-        data_new = multi_input(pose_data, self.conn, self.inputs, self.center, no_changes=True)
-        
-        try:
-            assert list(data_new.shape) == self.datashape
-        except AssertionError:
-            logging.info('data_new.shape: {}'.format(data_new.shape))
-            raise ValueError()
-        
-        data_new, is_two_persons = self.ntu_data_preprocess(data_new, label)
-        
-        data_new = data_new.permute(1,3,2,0).contiguous() # (T, M, V, C)
+        data_numpy = tools.valid_crop_resize(data_numpy, valid_frame_num, self.p_interval, self.window_size) # shape: C,T,V,M
+        if self.random_rot:
+            data_numpy = tools.random_rot(data_numpy) # shape: C,T,V,M
+        if self.vel:
+            data_numpy[:, :-1] = data_numpy[:, 1:] - data_numpy[:, :-1]
+            data_numpy[:, -1] = 0
 
-        return data_new, label, is_two_persons
-    
+        if isinstance(data_numpy, np.ndarray):
+            data_numpy = torch.from_numpy(data_numpy)
 
-    def ntu_data_preprocess(self, data, label):
-        """Script from InterAction code for loading samples"""
-        
-        # classes involving two persons
-        two_persons = list(range(49,60)).extend(list(range(105,120)))
-        if (label not in two_persons) and self.repeat:
-            self.repeat_skeleton_for_one_body(data,label) # shape: M,T,V,n*C
+        # for the model, input needs to be I,C,T,V,M (where I is number of inputs: joint, bone, motion etc)
+        # we set I = 1 i.e. only joint as input
+        data_numpy = data_numpy.unsqueeze(0) # shape: I,C,T,V,M
 
-        is_two_persons = (label in two_persons) if not self.repeat else True
+        return data_numpy, label
 
-        return data, is_two_persons
+    def top_k(self, score, top_k):
+        rank = score.argsort()
+        hit_top_k = [l in rank[i, -top_k:] for i, l in enumerate(self.label)]
+        return sum(hit_top_k) * 1.0 / len(hit_top_k)
 
 
-
-    def repeat_skeleton_for_one_body(self, data): # InterAction script
-        """
-            Our model requires that for actions involving one human,
-            the second skeleton should be the same as the first skeleton.
-            This is needed for the Interact module in our model.
-        """
-        # We do this for the action class involving just one human
-        data[:,:,:,1] = data[:,:,:,0]
-
-    
-    def get_datashape(self):
-        I = len(self.inputs) if self.inputs.isupper() else 1
-        C = self.input_dims if self.inputs in [
-            'joint', 'joint-motion', 'bone', 'bone-motion'] else self.input_dims*2
-        T = self.max_frame
-        V = self.num_node
-        M = self.M // self.num_person
-        return [I, C, T, V, M]
-    
-
-    
+def import_class(name):
+    components = name.split('.')
+    mod = __import__(components[0])
+    for comp in components[1:]:
+        mod = getattr(mod, comp)
+    return mod
