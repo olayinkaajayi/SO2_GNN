@@ -2,7 +2,7 @@ import logging
 import numpy as np
 
 class Graph():
-    def __init__(self, dataset, graph, labeling, part='body', max_hop=10, inter_link=False, base = 0, dilation=1, hop = 1, for_ntu=False, **kwargs):
+    def __init__(self, dataset, graph, labeling, part='body', max_hop=10, inter_link=False, base = 0, dilation=1, hop = 1, **kwargs):
         self.dataset = dataset
         self.graph = graph
         
@@ -20,7 +20,7 @@ class Graph():
             raise ValueError()
         self.labeling = labeling
 
-        if not for_ntu:
+        if dataset != 'ntu60':
 
             # get edges
             self.num_node, self.num_person, self.edge, self.connect_joint, self.parts, self.center = self._get_edge()
@@ -299,7 +299,7 @@ class Graph():
         return AD
     
 
-    def _get_ntu_edge():
+    def _get_ntu_edge(self):
         
         num_node = 25
         num_person = 2
@@ -362,6 +362,7 @@ class Graph():
 
         A = np.zeros((self.num_node, self.num_node))
         for i, j in self.edge:
+            i, j = i-1, j-1
             A[j, i] = 1
             A[i, j] = 1
 
