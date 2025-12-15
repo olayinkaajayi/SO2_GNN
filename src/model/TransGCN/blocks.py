@@ -4,8 +4,8 @@ from src.model.TransGCN.so2_gnn import SO2_GCN
 from src.model.mlp import MLP
 
 class SO2_GCN_Block(nn.Module):
-    def __init__(self, in_channels, out_channels, A, so2_arg):
-        super(SO2_GCN_Block).__init__()
+    def __init__(self, in_channels, out_channels, A, so2_arg, **kwargs):
+        super(SO2_GCN_Block, self).__init__()
 
         self.heads = so2_arg['heads']
         angle_partitions = so2_arg['angle_partitions']
@@ -19,31 +19,35 @@ class SO2_GCN_Block(nn.Module):
 
             self.gcn = nn.ModuleList( [
                                     SO2_GCN(in_dim=3, hidden_dim=o_dim, A=A, angle_partitions=angle_partitions,
-                                            rot_one_axis=rot_one_axis)
+                                            rot_one_axis=rot_one_axis, **kwargs)
                                             for _ in range(self.heads)]
                                     )
 
             self.regroup = MLP(num_layers=2, input_dim=o_dim*self.heads,
                                hidden_dim=int(0.6*self.out_channels),
-                               output_dim=self.out_channels)
+                               output_dim=self.out_channels, **kwargs)
         else:
-            self.gcn = SO2_GCN(in_dim=3,hidden_dim=self.out_channels, A=A, angle_partitions=angle_partitions, rot_one_axis=rot_one_axis)
+            self.gcn = SO2_GCN(in_dim=3,hidden_dim=self.out_channels, A=A, angle_partitions=angle_partitions, rot_one_axis=rot_one_axis, **kwargs)
 
 
-    def forward(self, x, A):
+    def forward(self, x):
+        # x [shape]: N*M,C,T,V
+        x = x.permute(0,2,3,1).contiguous() # shape: N*M,T,V,C
 
         if self.in_channels > 3: # 3 because we have 3D space: x,y,z
             out = []
             # May be able to avoid for loop here by putting the heads into the linear layers
             for i in range(self.heads):
                 y = self.proj[i](x)
-                y = self.gcn[i](y,A)
+                y = self.gcn[i](y)
                 out.append(y)
 
             out = torch.concatenate(out, dim=-1).to(x.device)
-            out = self.regroup(out)
+            out = self.regroup(out) # shape: N*M,T,V,C
         else:
-            out = self.gcn(x,A)
+            out = self.gcn(x) # shape: N*M,T,V,C
+
+        out = out.permute(0,3,1,2).contiguous() # shape: N*M,C,T,V
 
         return out
             
@@ -179,7 +183,7 @@ class Temporal_MultiScale_Block(nn.Module):
 
 
 class ST_Person_Attention(nn.Module):
-    def __init__(self, channel, parts, reduct_ratio, bias=True):
+    def __init__(self, channel, parts, reduct_ratio, bias=True, **kwargs):
         super(ST_Person_Attention, self).__init__()
 
         self.parts = parts

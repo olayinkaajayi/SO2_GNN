@@ -4,12 +4,12 @@ from torch import nn
 from .blocks import SO2_GCN_Block, Temporal_MultiScale_Block, ST_Person_Attention
 
 class Input_Branch(nn.Module):
-    def __init__(self, num_channel, A, so2_arg, use_att):
+    def __init__(self, num_channel, A, so2_arg, use_att, **kwargs):
         super(Input_Branch, self).__init__()
 
         module_list = [
-            Basic_Block(num_channel, 64, A, so2_arg, use_att),
-            Basic_Block(64, 64, A, so2_arg, use_att)
+            Basic_Block(num_channel, 64, A, so2_arg, use_att, **kwargs),
+            Basic_Block(64, 64, A, so2_arg, use_att, **kwargs)
         ]
 
         self.bn = nn.BatchNorm2d(num_channel)
@@ -26,28 +26,23 @@ class Input_Branch(nn.Module):
 
 
 class TransGCN(nn.Module):
-    def __init__(self, data_shape, num_class, A, so2_arg, use_att):
+    def __init__(self, data_shape, num_class, A, so2_arg, use_att, **kwargs):
         super(TransGCN, self).__init__()
-#########################################################################################
-    # To-do:
-    #   - correct all arguments for model. --> Done
-    #   - modify all config files. --> Done
-#########################################################################################
 
         num_input, num_channel, _, _, _ = data_shape
 
         # input branches
         self.input_branches = nn.ModuleList([
-            Input_Branch(num_channel, A)
+            Input_Branch(num_channel, A, so2_arg, use_att, **kwargs)
             for _ in range(num_input)
         ])
 
         # main stream
         module_list = [
-            Basic_Block(64, 128, A, so2_arg, use_att, stride=2),
-            Basic_Block(128, 128, A, so2_arg, use_att),
-            Basic_Block(128, 256, A, so2_arg, use_att, stride=2), # may not need 256
-            Basic_Block(256, 256, A, so2_arg, use_att)
+            Basic_Block(64, 128, A, so2_arg, use_att, stride=2, **kwargs),
+            Basic_Block(128, 128, A, so2_arg, use_att, **kwargs),
+            Basic_Block(128, 256, A, so2_arg, use_att, stride=2, **kwargs), # may not need 256
+            Basic_Block(256, 256, A, so2_arg, use_att, **kwargs)
         ]
         self.main_stream = nn.ModuleList(module_list)
 
@@ -75,7 +70,7 @@ class TransGCN(nn.Module):
 
         # extract feature
         _, C, T, V = x.size()
-        feature = x.view(N, M, C, T, V).permute(0, 2, 3, 4, 1)
+        feature = x.view(N, M, C, T, V).permute(0, 2, 3, 4, 1) # shape: N,C,T,V,M
 
         # output
         x = self.global_pooling(x)
@@ -86,7 +81,7 @@ class TransGCN(nn.Module):
 
 
 class Basic_Block(nn.Module):
-    def __init__(self, in_channels, out_channels, A, so2_arg, use_att=False, stride=1, kernel_size=[9,2]):
+    def __init__(self, in_channels, out_channels, A, so2_arg, use_att=False, stride=1, kernel_size=[9,2], **kwargs):
         super(Basic_Block, self).__init__()
         
         if not len(kernel_size) == 2:
@@ -100,10 +95,10 @@ class Basic_Block(nn.Module):
         temporal_window_size, max_graph_distance = kernel_size
 
 
-        self.scn = SO2_GCN_Block(in_channels, out_channels, A, so2_arg)
-        self.tcn = Temporal_MultiScale_Block(out_channels, temporal_window_size, stride)
+        self.scn = SO2_GCN_Block(in_channels, out_channels, A, so2_arg, **kwargs)
+        self.tcn = Temporal_MultiScale_Block(out_channels, temporal_window_size, stride, **kwargs)
         if use_att:
-            self.att = ST_Person_Attention(out_channels)
+            self.att = ST_Person_Attention(out_channels, **kwargs)
         else:
             self.att = lambda x: x
             

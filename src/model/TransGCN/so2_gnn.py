@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 class SO2_GCN(torch.nn.Module):
     
-    def __init__(self, in_dim, hidden_dim, A, angle_partitions=4, rot_one_axis=False):
+    def __init__(self, in_dim, hidden_dim, A, angle_partitions=4, rot_one_axis=False, **kwargs):
         super(SO2_GCN, self).__init__()
 
         self.n = angle_partitions # partitions of interval
@@ -118,7 +118,7 @@ class SO2_GCN(torch.nn.Module):
         N = A.size(0)
         I = torch.eye(N, dtype=A.dtype, device=A.device)
 #########################################################################
-        A_tilde = A + I # consider adding a parameter to multiply I ####################
+        A_tilde = A + I # consider adding a parameter to multiply I (as recommended in GCN paper) ####################
         
         # Calculate Degree Matrix D_tilde
         # Keep the dimension [:, 1] for broadcasting.
