@@ -253,6 +253,7 @@ class NTU_Seq_Transform():
         skes_joints = self.seq_translation(skes_joints)
 
         skes_joints = self.align_frames(skes_joints, frames_cnt)  # aligned to the same frame length
+                                                                  # size: N x max_num_frames x 150
 
         for evaluation in self.evaluations:
             self.split_dataset(skes_joints, label, performer, camera, evaluation, self.save_path)
