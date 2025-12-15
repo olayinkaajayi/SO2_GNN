@@ -134,16 +134,16 @@ def create_aligned_dataset(file_list, align):
         splits = ['x_train', 'x_test']
         aligned_set = {}
         for split in splits:
-            data = org_data[split]
+            data = org_data[split] # size: N x max_num_frames x 150
             N, T, _ = data.shape
-            data = data.reshape((N, T, 2, 25, 3)).transpose(0, 4, 1, 3, 2)
+            data = data.reshape((N, T, 2, 25, 3)).transpose(0, 4, 1, 3, 2) # N, C, T, V, M
             if align:
-                aligned_data = align_skeleton(data)
-                aligned_data = aligned_data.transpose(0, 2, 4, 3, 1).reshape(N, T, -1)
+                aligned_data = align_skeleton(data) # N, C, T, V, M
+                aligned_data = aligned_data.transpose(0, 2, 4, 3, 1).reshape(N, T, -1) # transpose gives: N, T, M, V, C
             
             else: # included this to allow for deactivating "align"
-                aligned_data = aligned_data.transpose(0, 2, 4, 3, 1).reshape(N, T, -1)
-            aligned_set[split] = aligned_data
+                aligned_data = aligned_data.transpose(0, 2, 4, 3, 1).reshape(N, T, -1) # transpose gives: N, T, M, V, C
+            aligned_set[split] = aligned_data # N, T, MVC
 
         # Delete unaligned saved files
         # I added this part as we would not be needing the files anymore
