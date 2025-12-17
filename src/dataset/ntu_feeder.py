@@ -55,7 +55,7 @@ class NTU_Feeder(Dataset):
 
         # num_input, num_channel, _, _, _ : dimension info used by model
         N,C,T,V,M = self.data.shape
-        self.datashape = (1, C, self.window_size, V, M) # 1 corresponds to one modality: joint
+        self.datashape = [1, C, self.window_size, V, M] # 1 corresponds to one modality: joint
         
 
     def get_n_per_class(self):
