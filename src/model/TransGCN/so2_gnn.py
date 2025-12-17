@@ -42,7 +42,7 @@ class SO2_GCN(torch.nn.Module):
         if not self.rot_one_axis:
             ax = ['x','y','z']
             for i in range(len(ax)):
-                RxW += self.weight_mat[i](self.R_t(axis=ax[i])@x)
+                RxW += self.weight_mat[i](self.R_t(x, axis=ax[i]))
         else:
             RxW = self.weight_mat(self.R_t(x, axis='y'))
 
@@ -56,7 +56,7 @@ class SO2_GCN(torch.nn.Module):
 
     def R_t(self, x, axis='y'):
         """This function helps us achieve rotation equivariance."""
-        rotation_90_deg = self.rot_mat(axis=axis)
+        rotation_90_deg = self.rot_mat(axis=axis).to(x.device)
         
         zero_one_func = lambda a: torch.exp(-(a**2)) # we want it to be close enough to 1 when the angle is relevant.
                                                     # Else it can push it to zeros as far as possible
@@ -141,6 +141,6 @@ class SO2_GCN(torch.nn.Module):
         # D_tilde_inv_sqrt (N) naturally broadcasts against the columns of A_prime (N x N).
         A_normalized = A_prime * D_tilde_inv_sqrt.unsqueeze(0)
         
-        return A_normalized.unsqueeze(0).repeat(batch_size,1,1) # batch_size x N x N
+        return A_normalized.unsqueeze(0).unsqueeze(0).repeat(batch_size,1,1,1) # batch_size x 1 x N x N
 
 
