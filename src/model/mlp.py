@@ -5,7 +5,7 @@ from torch.nn import init
 
 ###MLP with lienar output
 class MLP(nn.Module):
-    def __init__(self, num_layers, input_dim, hidden_dim, output_dim, three_D=False):
+    def __init__(self, num_layers, input_dim, hidden_dim, output_dim, three_D=True):
         '''
             num_layers: number of layers in the neural networks (EXCLUDING the input layer). If num_layers=1, this reduces to linear model.
             input_dim: dimensionality of input features
@@ -41,9 +41,11 @@ class MLP(nn.Module):
                 init.constant_(self.linears[i].bias, 0)
 
             for layer in range(num_layers - 1):
-                self.batch_norms.append(nn.BatchNorm1d((hidden_dim)))
+                self.batch_norms.append(nn.BatchNorm2d((hidden_dim)))
 
     def forward(self, x):
+        # x shape: N*M,T,V,C
+
         if self.linear_or_not:
             #If linear model
             return self.linear(x)
@@ -53,9 +55,9 @@ class MLP(nn.Module):
             for layer in range(self.num_layers - 1):
                 h = self.linears[layer](h)
                 if self.three_D:
-                    h = h.transpose(-1,-2)
+                    h = h.transpose(-1,-3) # shape: N*M,C,V,T
                     h = self.batch_norms[layer](h)
-                    h = h.transpose(-1,-2)
+                    h = h.transpose(-1,-3) # shape: N*M,T,V,C
                 else:
                     h = self.batch_norms[layer](h)
                 h = F.relu(h)
