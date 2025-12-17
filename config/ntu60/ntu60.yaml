@@ -32,7 +32,7 @@ model_type: Trans-GCN
 model_args:
   use_att: True
   kernel_size: [3,2]
-  dilation: [2,3]
+  dilations: [2,3]
   reduct_ratio: 2
   so2_arg:
     heads: 4
