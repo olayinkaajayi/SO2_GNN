@@ -16,7 +16,7 @@ class Processor(Initializer):
         self.model.train()
         num_top1, num_sample = 0, 0
         train_iter = tqdm(self.train_loader, dynamic_ncols=True)
-        for (x, y) in enumerate(train_iter):
+        for _, (x, y) in enumerate(train_iter):
             self.optimizer.zero_grad()
 
             # Using GPU
@@ -24,7 +24,7 @@ class Processor(Initializer):
             y = y.long().to(self.device)
 
             # Calculating Output
-            out = self.model(x)
+            out,_ = self.model(x)
 
             # Updating Weights
             loss = self.loss_func(out, y)
@@ -69,14 +69,14 @@ class Processor(Initializer):
             num_sample, eval_loss = 0, []
             cm = np.zeros((self.num_class, self.num_class))
             eval_iter = tqdm(self.eval_loader, dynamic_ncols=True)
-            for (x, y, name) in enumerate(eval_iter):
+            for _, (x, y) in enumerate(eval_iter):
 
                 # Using GPU
                 x = x.float().to(self.device)
                 y = y.long().to(self.device)
 
                 # Calculating Output
-                out = self.model(x)
+                out, _ = self.model(x)
 
                 # Getting Loss
                 loss = self.loss_func(out, y)
