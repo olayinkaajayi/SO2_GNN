@@ -25,8 +25,9 @@ class SO2_GCN_Block(nn.Module):
 
             self.regroup = MLP(num_layers=2, input_dim=o_dim*self.heads,
                                hidden_dim=int(0.6*self.out_channels),
-                               output_dim=self.out_channels, **kwargs)
+                               output_dim=self.out_channels)
         else:
+            # consider setting rot_one_axis= True for the input feature i.e. in_dim=3
             self.gcn = SO2_GCN(in_dim=3,hidden_dim=self.out_channels, A=A, angle_partitions=angle_partitions, rot_one_axis=rot_one_axis, **kwargs)
 
 
@@ -114,7 +115,7 @@ class Temporal_Basic_Block(nn.Module):
         return x
 
 class Temporal_MultiScale_Block(nn.Module):
-    def __init__(self, out_channels, kernel_size=3, stride=1, dilations=[1,2], residual_kernel_size=1):
+    def __init__(self, out_channels, kernel_size=3, stride=1, dilations=[1,2], residual_kernel_size=1, **kwargs):
 
         super().__init__()
         in_channels = out_channels
