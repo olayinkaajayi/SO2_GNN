@@ -356,6 +356,12 @@ class Graph():
             np.array([24, 25])             # right hand extra joints (if used)
         ]
 
+        # Reduce the index to start from 0
+        centre -= 1
+        connect_joint -= 1
+        parts = [item - 1 for item in parts]
+
+
         return num_node, num_person, edge, connect_joint, parts, centre
 
     def _get_ntu_adjacency(self):
