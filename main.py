@@ -24,6 +24,10 @@ def main():
     elif args.extract:
         p = Processor(args)
         p.extract()
+    
+    elif args.see_model_vals:
+        p = Processor(args)
+        p.see_model_vals()
 
     else:
         p = Processor(args)
@@ -39,10 +43,12 @@ def init_parser():
     parser.add_argument('--seed', '-s', type=int, default=1, help='Random seed')
     parser.add_argument('--pretrained_path', '-pp', type=str, default='', help='Path to pretrained models')
     parser.add_argument('--work_dir', '-w', type=str, default='', help='Work dir')
+    parser.add_argument('--experiment_name', '-ep', type=str, default='', help='experiment name')
 
     # Processing
     parser.add_argument('--debug', '-db', default=False, action='store_true', help='Debug')
     parser.add_argument('--resume', '-r', default=False, action='store_true', help='Resume from checkpoint')
+    parser.add_argument('--see_model_vals', '-sm', default=False, action='store_true', help='check model vales from checkpoint') #######
     parser.add_argument('--evaluate', '-e', default=False, action='store_true', help='Evaluate')
     parser.add_argument('--extract', '-ex', default=False, action='store_true', help='Extract')
     parser.add_argument('--generate_data', '-gd', default=False, action='store_true', help='Generate skeleton data')

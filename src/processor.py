@@ -60,7 +60,7 @@ class Processor(Initializer):
         ))
         logging.info('')
 
-    def eval(self, save_score=True):
+    def eval(self, save_score=False):
         self.model.eval()
         start_eval_time = time()
         score = {}
@@ -82,7 +82,8 @@ class Processor(Initializer):
                 loss = self.loss_func(out, y)
                 eval_loss.append(loss.item())
 
-                if save_score:
+                if save_score: # modify feeder later to include skeleton name
+                    name = ''   # Also change save_score to True
                     for n, c in zip(name, out.detach().cpu().numpy()):
                         score[n] = c
 
@@ -131,6 +132,10 @@ class Processor(Initializer):
 
     def start(self):
         start_time = time()
+
+        # Experiment name
+        logging.info(f'Experiment name: {self.args.experiment_name}.')
+
         if self.args.evaluate:
             if self.args.debug:
                 logging.warning('Warning: Using debug setting now!')
@@ -161,6 +166,7 @@ class Processor(Initializer):
                 logging.info('Loading checkpoint ...')
                 checkpoint = utils.load_checkpoint(self.args.work_dir, self.model_name)
                 self.model.module.load_state_dict(checkpoint['model'])
+                # when resuming training (for long training), may not want to load optimizer & scheduler
                 self.optimizer.load_state_dict(checkpoint['optimizer'])
                 self.scheduler.load_state_dict(checkpoint['scheduler'])
                 start_epoch = checkpoint['epoch']
@@ -235,7 +241,7 @@ class Processor(Initializer):
         features = []
         labels = []
         with torch.no_grad():
-            for num, (x, y, name, obj_name) in enumerate(eval_iter):
+            for num, (x, y, name) in enumerate(eval_iter):
                 names.extend(name)
                 labels.extend(y)
                 x = x.float().to(self.device)
@@ -261,3 +267,52 @@ class Processor(Initializer):
 
         logging.info('Finish extracting!')
         logging.info('')
+
+    
+    def see_model_vals(self):
+        
+        # Resuming
+            start_epoch = 0
+            best_state = {'acc_top1': 0, 'acc_top5': 0,
+                          'acc_top1_last': 0,
+                          'cm': 0, 'best_epoch': 0}
+
+            logging.info('Loading checkpoint ...')
+            checkpoint = utils.load_checkpoint(self.args.work_dir, self.model_name)
+            self.model.module.load_state_dict(checkpoint['model'])
+            # when resuming training (for long training), may not want to load optimizer & scheduler
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            self.scheduler.load_state_dict(checkpoint['scheduler'])
+            start_epoch = checkpoint['epoch']
+            best_state.update(checkpoint['best_state'])
+            self.global_step = start_epoch * len(self.train_loader)
+            logging.info('Start epoch: {}'.format(start_epoch+1))
+            logging.info('Best accuracy: {:.2%}'.format(
+                best_state['acc_top1']))
+            logging.info('Successful!')
+            logging.info('')
+    
+            model = self.model
+
+            n = self.args.model_args['so2_arg']['angle_partitions']
+            def get_angles(t_k):
+                learnt_t = []
+                for k in range(n):
+                    modulus = np.pi/n
+                    prev_mod = np.pi*(k)/n
+                    learnt_t.append( (prev_mod + (t_k[k] % modulus)).item()*180/np.pi )
+                
+                return learnt_t
+            
+            zero_one_func = lambda a: torch.exp(-(a**2)).tolist()
+
+            for name, module in model.named_modules():
+                if hasattr(module, "t_k"):
+                    logging.info(f"\t\nModule: {name}")
+                    for axis, param in module.t_k.items():
+                        logging.info(f"\t\t Learnt  t_k[{axis}] = {get_angles(param.data)}")
+
+                    logging.info(f"\n**For sigma_k**\t\nModule: {name}")
+                    for axis, param in module.sigma_k.items():
+                        logging.info(f"\t\t  sigma_k[{axis}] = {zero_one_func(param.data)}") #sigma_k
+
