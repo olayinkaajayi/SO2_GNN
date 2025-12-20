@@ -2,6 +2,7 @@ import torch
 import logging
 from torch import nn
 from .blocks import SO2_GCN_Block, Temporal_MultiScale_Block, ST_Person_Attention
+from .gcn import GCN
 
 class Input_Branch(nn.Module):
     def __init__(self, num_channel, A, so2_arg, use_att, **kwargs):
@@ -81,7 +82,7 @@ class TransGCN(nn.Module):
 
 
 class Basic_Block(nn.Module):
-    def __init__(self, in_channels, out_channels, A, so2_arg, use_att=False, stride=1, kernel_size=[9,2], **kwargs):
+    def __init__(self, in_channels, out_channels, A, so2_arg, use_att=False, stride=1, kernel_size=[9,2], use_gcn=False, **kwargs):
         super(Basic_Block, self).__init__()
         
         if not len(kernel_size) == 2:
@@ -94,8 +95,11 @@ class Basic_Block(nn.Module):
             raise ValueError()
         temporal_window_size, max_graph_distance = kernel_size
 
+        if use_gcn:
+            self.scn = GCN(in_channels, out_channels, A, **kwargs)
+        else:
+            self.scn = SO2_GCN_Block(in_channels, out_channels, A, so2_arg, **kwargs)
 
-        self.scn = SO2_GCN_Block(in_channels, out_channels, A, so2_arg, **kwargs)
         self.tcn = Temporal_MultiScale_Block(out_channels, temporal_window_size, stride, **kwargs)
         if use_att:
             self.att = ST_Person_Attention(out_channels, **kwargs)
