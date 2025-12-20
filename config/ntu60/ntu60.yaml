@@ -24,8 +24,12 @@ dataset_args:
   vel: False
   random_rot: True
   sort: False
-  train_batch_size: 16
-  eval_batch_size: 16
+  # Reduced dataset
+  load_part: True
+  load_portion: 0.4
+  # Batch size
+  train_batch_size: 64
+  eval_batch_size: 128
 
 # Model
 model_type: Trans-GCN
@@ -34,9 +38,10 @@ model_args:
   kernel_size: [3,2]
   dilations: [2,3]
   reduct_ratio: 2
+  use_gcn: False
   so2_arg:
     heads: 4
-    angle_partitions: 4
+    angle_partitions: 6
     rot_one_axis: False
 
 
