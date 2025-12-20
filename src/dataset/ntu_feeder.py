@@ -2,12 +2,13 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from . import tools
+import logging
 
 
 class NTU_Feeder(Dataset):
     def __init__(self, phase, graph, data_path, p_interval=1, p_interval_test=1, random_shift=False,
                  random_move=False, random_rot=False, window_size=-1, normalization=False,
-                 vel=False, sort=False, **kwargs):
+                 vel=False, sort=False, load_part=False, load_portion=1.0, **kwargs):
         """
         :param data_path:
         :param phase: training set or test set
@@ -27,6 +28,8 @@ class NTU_Feeder(Dataset):
         self.p_interval = p_interval if phase == "train" else p_interval_test
         self.random_rot = random_rot
         self.vel = vel
+        self.load_part = load_part
+        self.load_portion = load_portion
         self.load_data()
 
         if sort:
@@ -34,6 +37,14 @@ class NTU_Feeder(Dataset):
             self.sort()
         if normalization:
             self.get_mean_map()
+
+    def load_partial_data(self):
+         N = len(self.data)
+         sub_list = np.random.choice(a=range(N), size=int(N*self.load_portion), replace=False)
+         tmp = self.data
+         self.data = tmp[sub_list]
+         tmp = self.label
+         self.label = tmp[sub_list]
 
     def load_data(self):
         # data: N C V T M
@@ -50,6 +61,11 @@ class NTU_Feeder(Dataset):
         self.data = self.data[nan_out]
         self.label = self.label[nan_out]
         self.sample_name = [self.phase + '_' + str(i) for i in range(len(self.data))]
+
+        if self.load_part: # loads only a portion of the data
+            self.load_partial_data()
+            logging.warning(f'Using {self.load_portion:.2%} of the {self.phase.upper()} dataset')
+
         N, T, _ = self.data.shape
         self.data = self.data.reshape((N, T, 2, 25, 3)).transpose(0, 4, 1, 3, 2) # shape: N, C, T, V, M
 
