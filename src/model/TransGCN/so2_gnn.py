@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.init as init
 import numpy as np
 import torch.nn.functional as F
+from src.model.mlp import MLP
 
 class SO2_GCN(torch.nn.Module):
     
@@ -19,12 +20,13 @@ class SO2_GCN(torch.nn.Module):
         }) if not rot_one_axis else nn.ParameterDict({
             'y': nn.Parameter(torch.randn(self.n))}) # should each lie in a disjoint set between [0,\pi)
         
-        self.sigma_k = nn.ParameterDict({
-            'x': nn.Parameter(torch.randn(self.n)),
-            'y': nn.Parameter(torch.randn(self.n)),
-            'z': nn.Parameter(torch.randn(self.n))
-        }) if not rot_one_axis else nn.ParameterDict({
-            'y': nn.Parameter(torch.randn(self.n))}) # should each lie in the set [-1,+1]
+        N = A.shape[0] # Number of nodes on skeleton graph
+        self.sigma_k = nn.ModuleDict({ # consider reducing num_layers to 2
+            'x': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
+            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
+            'z': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)
+        }) if not rot_one_axis else nn.ModuleDict({
+            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)}) # should each lie in the set [-1,+1] or [0,1] ??
         
         self.weight_mat = nn.ParameterList([nn.Linear(in_dim, hidden_dim, bias=False)
                                             for _ in range(3)]) if not rot_one_axis else nn.Linear(in_dim, hidden_dim, bias=False)
@@ -37,6 +39,7 @@ class SO2_GCN(torch.nn.Module):
 
     def forward(self, x):
         """This function implements the SO(2)-GCN model designed for different axis of rotations."""
+        # x shape: N*M,T,V,C
 
         RxW = 0
         if not self.rot_one_axis:
@@ -56,6 +59,9 @@ class SO2_GCN(torch.nn.Module):
 
     def R_t(self, x, axis='y'):
         """This function helps us achieve rotation equivariance."""
+        # x shape: N*M,T,V,C
+        NM, T, V, C = x.shape
+
         rotation_90_deg = self.rot_mat(axis=axis).to(x.device)
         
         zero_one_func = lambda a: torch.exp(-(a**2)) # we want it to be close enough to 1 when the angle is relevant.
@@ -63,17 +69,18 @@ class SO2_GCN(torch.nn.Module):
         # zero_one_func = lambda a: F.sigmoid(a) # This turned out to give a better result.
 
         rotate_sum = 0
-        for k in range(self.n):
-            modulus = np.pi/self.n
-            prev_mod = np.pi*(k)/self.n
-            learnt_t = prev_mod + (self.t_k[axis][k] % modulus) # ?? Would the modulus affect the differentiation (calculus) ??
-            exponent =  rotation_90_deg * learnt_t # rotation should be within [0,\pi)
+        sigma = self.sigma_k[axis](x.view(NM,T,-1)) # shape: N*M,T,self.n
+        modulus = np.pi/self.n
+        prev_mod = np.array(list(map(lambda k: np.pi*(k)/self.n, range(self.n))))
+        learnt_t = prev_mod + (self.t_k[axis] % modulus) # ?? Would the modulus affect the differentiation (calculus) ??
+        exponent =  rotation_90_deg * learnt_t # rotation should be within [0,\pi)
 
-            rotate = zero_one_func(self.sigma_k[axis][k])*torch.matrix_exp(-exponent) # ?? is the "negative" relevant ?? It would just affect the direction of rotation.
+        rotate = zero_one_func(sigma)*torch.matrix_exp(-exponent) # shape: N*M,T,self.n,3,3
+                                                                  # ?? is the "negative" relevant ?? It would just affect the direction of rotation.
+        rotate_sum = rotate.sum(dim=-3).unsqueeze(2) # shape: N*M,T,1,3,3
 
-            rotate_sum += rotate
-
-        return x.matmul(rotate)
+        # in my old code, I kept multiplying x by rotate, instead of rotate_sum (crying!!!)
+        return x.matmul(rotate_sum) # shape: N*M,T,V,C
 
     
     def rot_mat(self, axis='y'):
