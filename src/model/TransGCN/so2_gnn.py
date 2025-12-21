@@ -73,7 +73,7 @@ class SO2_GCN(torch.nn.Module):
 
             rotate_sum += rotate
 
-        return x.matmul(rotate)
+        return x.matmul(rotate_sum)
 
     
     def rot_mat(self, axis='y'):
