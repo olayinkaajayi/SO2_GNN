@@ -4,7 +4,7 @@ seed: 1
 debug: False
 pretrained_path:
 work_dir: ./workdir/ntu_smv
-experiment_name: 
+experiment_name: t_k & sigma_k values for Sigmoid zero_one_funs
 
 # Data Loader
 dataset: ntu60
@@ -38,7 +38,7 @@ model_args:
   use_gcn: False
   so2_arg:
     heads: 4
-    angle_partitions: 4
+    angle_partitions: 6
     rot_one_axis: False
 
 

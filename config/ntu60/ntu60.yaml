@@ -4,6 +4,7 @@ seed: 1
 debug: False
 pretrained_path:
 work_dir: ./workdir
+experiment_name: zero_one_func = sigmoid
 
 # Data Loader
 dataset: ntu60
