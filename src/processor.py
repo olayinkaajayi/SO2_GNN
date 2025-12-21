@@ -5,6 +5,7 @@ import pickle
 import numpy as np
 from tqdm import tqdm
 from time import time
+import torch.nn.functional as F
 
 from . import utils
 from .initializer import Initializer
@@ -304,7 +305,8 @@ class Processor(Initializer):
                 
                 return learnt_t
             
-            zero_one_func = lambda a: torch.exp(-(a**2)).tolist()
+            # zero_one_func = lambda a: torch.exp(-(a**2)).tolist()
+            zero_one_func = lambda a: F.sigmoid(a).tolist()
 
             for name, module in model.named_modules():
                 if hasattr(module, "t_k"):

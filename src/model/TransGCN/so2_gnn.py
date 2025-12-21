@@ -60,6 +60,8 @@ class SO2_GCN(torch.nn.Module):
         
         zero_one_func = lambda a: torch.exp(-(a**2)) # we want it to be close enough to 1 when the angle is relevant.
                                                     # Else it can push it to zeros as far as possible
+        # zero_one_func = lambda a: F.sigmoid(a) # This turned out to give a better result.
+
         rotate_sum = 0
         for k in range(self.n):
             modulus = np.pi/self.n
