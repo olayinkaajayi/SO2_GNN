@@ -64,23 +64,30 @@ class SO2_GCN(torch.nn.Module):
 
         rotation_90_deg = self.rot_mat(axis=axis).to(x.device)
         
-        zero_one_func = lambda a: torch.exp(-(a**2)) # we want it to be close enough to 1 when the angle is relevant.
+        # zero_one_func = lambda a: torch.exp(-(a**2)) # we want it to be close enough to 1 when the angle is relevant.
                                                     # Else it can push it to zeros as far as possible
-        # zero_one_func = lambda a: F.sigmoid(a) # This turned out to give a better result.
+        zero_one_func = lambda a: F.sigmoid(a) # This turned out to give a better result.
 
-        rotate_sum = 0
-        sigma = self.sigma_k[axis](x.view(NM,T,-1)) # shape: N*M,T,self.n
-        modulus = np.pi/self.n
-        prev_mod = np.array(list(map(lambda k: np.pi*(k)/self.n, range(self.n))))
+        sigma = self.sigma_k[axis](x.view(NM,T,-1).unsqueeze(2)).squeeze(-2) # shape: N*M,T,self.n --> unsqueeze and squeeze because of batchnorm shape in MLP.
+        modulus = torch.pi/self.n
+        prev_mod = torch.tensor(list(map(lambda k: torch.pi*(k)/self.n, range(self.n)))).to(x.device)
         learnt_t = prev_mod + (self.t_k[axis] % modulus) # ?? Would the modulus affect the differentiation (calculus) ??
-        exponent =  rotation_90_deg * learnt_t # rotation should be within [0,\pi)
+        
+        learnt_t = learnt_t.unsqueeze(-1).unsqueeze(-1).repeat(1,3,3) # shape: self.n,3,3
+        exponent =  rotation_90_deg.unsqueeze(0) * learnt_t # rotation should be within [0,\pi)
 
-        rotate = zero_one_func(sigma)*torch.matrix_exp(-exponent) # shape: N*M,T,self.n,3,3
-                                                                  # ?? is the "negative" relevant ?? It would just affect the direction of rotation.
-        rotate_sum = rotate.sum(dim=-3).unsqueeze(2) # shape: N*M,T,1,3,3
+        # repeat to distribute and allow for multiplication
+        z1_f = zero_one_func(sigma).unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3,3) # shape: N*M,T,self.n,3,3
 
-        # in my old code, I kept multiplying x by rotate, instead of rotate_sum (crying!!!)
-        return x.matmul(rotate_sum) # shape: N*M,T,V,C
+        rotate = z1_f*torch.matrix_exp(-exponent) # shape: N*M,T,self.n,3,3
+                                                  # ?? is the "negative" relevant ?? It would just affect the direction of rotation.
+        rotate_sum = rotate.sum(dim=-3) # shape: N*M,T,3,3
+
+        # Note: Rotation matrices are pre-multiplied i.e. R.x, where x is a column vector:
+        # Tx3x3 . Tx3xV --> Tx3xV --(transpose)--> TxVx3
+        rot_x = rotate_sum.matmul(x.transpose(-1,-2)) # shape: N*M,T,C,V
+
+        return rot_x.transpose(-1,-2) # shape: N*M,T,V,C
 
     
     def rot_mat(self, axis='y'):
