@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from src.model.TransGCN.so2_gnn import SO2_GCN
 from src.model.mlp import MLP
+import torch.nn.functional as F
 
 class SO2_GCN_Block(nn.Module):
     def __init__(self, in_channels, out_channels, A, so2_arg, **kwargs):
@@ -24,7 +25,7 @@ class SO2_GCN_Block(nn.Module):
                                             for _ in range(self.heads)]
                                     )
 
-            self.regroup = MLP(num_layers=2, input_dim=3*self.heads,
+            self.regroup = MLP(num_layers=1, input_dim=3*self.heads,
                                hidden_dim=int(0.6*self.out_channels),
                                output_dim=self.out_channels)
         else:
@@ -52,6 +53,8 @@ class SO2_GCN_Block(nn.Module):
         else:
             out = self.gcn(x) # shape: N*M,T,V,C
             out = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@self.regroup(out) # shape: N*M,T,V,C
+
+        out = F.relu(out)
 
         out = out.permute(0,3,1,2).contiguous() # shape: N*M,C,T,V
 
