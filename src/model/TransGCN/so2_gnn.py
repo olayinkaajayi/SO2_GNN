@@ -28,11 +28,14 @@ class SO2_GCN(torch.nn.Module):
         }) if not rot_one_axis else nn.ModuleDict({
             'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)}) # should each lie in the set [-1,+1] or [0,1] ??
         
-        self.weight_mat = nn.ParameterList([nn.Linear(in_dim, hidden_dim, bias=False)
+        self.weight_mat = nn.ModuleList([nn.Linear(in_dim, hidden_dim, bias=False)
                                             for _ in range(3)]) if not rot_one_axis else nn.Linear(in_dim, hidden_dim, bias=False)
 
-        for m in self.weight_mat:
-            init.xavier_uniform_(m.weight, gain=init.calculate_gain('relu')) # Use relu gain if ReLU follows
+        if not self.rot_one_axis:
+            for m in self.weight_mat:
+                init.xavier_uniform_(m.weight, gain=init.calculate_gain('relu')) # Use relu gain if ReLU follows
+        else:
+            init.xavier_uniform_(self.weight_mat.weight, gain=init.calculate_gain('relu'))
 
         self.register_buffer('A', A) # Adjacency matrix
 
