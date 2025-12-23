@@ -13,6 +13,7 @@ class SO2_GCN_Block(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         o_dim = out_channels//self.heads
+        o_dim = o_dim if o_dim >= 32 else 32 # set minimum head size to 32
 
         if self.in_channels > 3:
             self.proj = nn.ModuleList([nn.Linear(self.in_channels,3) for _ in range(self.heads)])
