@@ -24,12 +24,15 @@ class SO2_GCN_Block(nn.Module):
                                             for _ in range(self.heads)]
                                     )
 
-            self.regroup = MLP(num_layers=2, input_dim=o_dim*self.heads,
+            self.regroup = MLP(num_layers=2, input_dim=3*self.heads,
                                hidden_dim=int(0.6*self.out_channels),
                                output_dim=self.out_channels)
         else:
             # consider setting rot_one_axis= True for the input feature i.e. in_dim=3
             self.gcn = SO2_GCN(in_dim=3,hidden_dim=self.out_channels, A=A, angle_partitions=angle_partitions, rot_one_axis=rot_one_axis, **kwargs)
+            self.regroup = nn.Linear(3,self.out_channels)
+
+        self.register_buffer('A', A) # Adjacency matrix
 
 
     def forward(self, x):
@@ -45,13 +48,55 @@ class SO2_GCN_Block(nn.Module):
                 out.append(y)
 
             out = torch.concatenate(out, dim=-1).to(x.device)
-            out = self.regroup(out) # shape: N*M,T,V,C
+            out = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@self.regroup(out) # shape: N*M,T,V,C
         else:
             out = self.gcn(x) # shape: N*M,T,V,C
+            out = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@self.regroup(out) # shape: N*M,T,V,C
 
         out = out.permute(0,3,1,2).contiguous() # shape: N*M,C,T,V
 
         return out
+    
+    def get_normalized_adjacency(self, A: torch.Tensor, batch_size) -> torch.Tensor:
+        """
+        Calculates the symmetrically normalized adjacency matrix (D^(-1/2) * A * D^(-1/2))
+        after adding self-loops to A.
+
+        Args:
+            A: The input adjacency matrix (N x N) as a PyTorch Tensor.
+
+        Returns:
+            The normalized adjacency matrix (N x N) Tensor.
+        """
+        
+        # Add Self-Loops (Calculate A_tilde = A + I)
+        N = A.size(0)
+        I = torch.eye(N, dtype=A.dtype, device=A.device)
+#########################################################################
+        A_tilde = A + I # consider adding a parameter to multiply I (as recommended in GCN paper) ####################
+        
+        # Calculate Degree Matrix D_tilde
+        # Keep the dimension [:, 1] for broadcasting.
+        D_tilde_diag = torch.sum(A_tilde, dim=1) # Shape: (N)
+        
+        # Calculate D_tilde^(-1/2)
+        # A small epsilon is added for numerical stability in case of zero degrees.
+        epsilon = 1e-12
+        D_tilde_inv_sqrt = torch.pow(D_tilde_diag + epsilon, -0.5) # Shape: (N)
+        
+        # Convert to a diagonal matrix for matrix multiplication
+        # D_tilde_inv_sqrt_matrix = torch.diag(D_tilde_inv_sqrt)
+        
+        # Calculate D^(-1/2) * A_tilde * D^(-1/2)
+        
+        # D_tilde_inv_sqrt needs to be reshaped to (N, 1) for multiplication along columns (rows of A_tilde).
+        A_prime = A_tilde * D_tilde_inv_sqrt.unsqueeze(1)
+        
+        # Right multiplication: A_prime * D^(-1/2)
+        # D_tilde_inv_sqrt (N) naturally broadcasts against the columns of A_prime (N x N).
+        A_normalized = A_prime * D_tilde_inv_sqrt.unsqueeze(0)
+        
+        return A_normalized.unsqueeze(0).unsqueeze(0).repeat(batch_size,1,1,1) # batch_size x 1 x N x N
             
 
 

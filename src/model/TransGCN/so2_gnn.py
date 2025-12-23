@@ -28,35 +28,20 @@ class SO2_GCN(torch.nn.Module):
         }) if not rot_one_axis else nn.ModuleDict({
             'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)}) # should each lie in the set [-1,+1] or [0,1] ??
         
-        self.weight_mat = nn.ModuleList([nn.Linear(in_dim, hidden_dim, bias=False)
-                                            for _ in range(3)]) if not rot_one_axis else nn.Linear(in_dim, hidden_dim, bias=False)
-
-        if not self.rot_one_axis:
-            for m in self.weight_mat:
-                init.xavier_uniform_(m.weight, gain=init.calculate_gain('relu')) # Use relu gain if ReLU follows
-        else:
-            init.xavier_uniform_(self.weight_mat.weight, gain=init.calculate_gain('relu'))
-
-        self.register_buffer('A', A) # Adjacency matrix
-
 
     def forward(self, x):
         """This function implements the SO(2)-GCN model designed for different axis of rotations."""
         # x shape: N*M,T,V,C
 
-        RxW = 0
+        Rx = 0
         if not self.rot_one_axis:
             ax = ['x','y','z']
             for i in range(len(ax)):
-                RxW += self.weight_mat[i](self.R_t(x, axis=ax[i]))
+                Rx += self.R_t(x, axis=ax[i])
         else:
-            RxW = self.weight_mat(self.R_t(x, axis='y'))
+            Rx = self.R_t(x, axis='y')
 
-        D_A_D_RxW = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@RxW
-
-        out = F.relu(D_A_D_RxW)
-
-        return out
+        return Rx
 
 
 
@@ -119,47 +104,3 @@ class SO2_GCN(torch.nn.Module):
 
         return rot
     
-
-
-    def get_normalized_adjacency(self, A: torch.Tensor, batch_size) -> torch.Tensor:
-        """
-        Calculates the symmetrically normalized adjacency matrix (D^(-1/2) * A * D^(-1/2))
-        after adding self-loops to A.
-
-        Args:
-            A: The input adjacency matrix (N x N) as a PyTorch Tensor.
-
-        Returns:
-            The normalized adjacency matrix (N x N) Tensor.
-        """
-        
-        # Add Self-Loops (Calculate A_tilde = A + I)
-        N = A.size(0)
-        I = torch.eye(N, dtype=A.dtype, device=A.device)
-#########################################################################
-        A_tilde = A + I # consider adding a parameter to multiply I (as recommended in GCN paper) ####################
-        
-        # Calculate Degree Matrix D_tilde
-        # Keep the dimension [:, 1] for broadcasting.
-        D_tilde_diag = torch.sum(A_tilde, dim=1) # Shape: (N)
-        
-        # Calculate D_tilde^(-1/2)
-        # A small epsilon is added for numerical stability in case of zero degrees.
-        epsilon = 1e-12
-        D_tilde_inv_sqrt = torch.pow(D_tilde_diag + epsilon, -0.5) # Shape: (N)
-        
-        # Convert to a diagonal matrix for matrix multiplication
-        # D_tilde_inv_sqrt_matrix = torch.diag(D_tilde_inv_sqrt)
-        
-        # Calculate D^(-1/2) * A_tilde * D^(-1/2)
-        
-        # D_tilde_inv_sqrt needs to be reshaped to (N, 1) for multiplication along columns (rows of A_tilde).
-        A_prime = A_tilde * D_tilde_inv_sqrt.unsqueeze(1)
-        
-        # Right multiplication: A_prime * D^(-1/2)
-        # D_tilde_inv_sqrt (N) naturally broadcasts against the columns of A_prime (N x N).
-        A_normalized = A_prime * D_tilde_inv_sqrt.unsqueeze(0)
-        
-        return A_normalized.unsqueeze(0).unsqueeze(0).repeat(batch_size,1,1,1) # batch_size x 1 x N x N
-
-
