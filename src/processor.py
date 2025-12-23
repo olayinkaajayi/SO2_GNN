@@ -314,7 +314,7 @@ class Processor(Initializer):
                     for axis, param in module.t_k.items():
                         logging.info(f"\t\t Learnt  t_k[{axis}] = {get_angles(param.data)}")
 
-                    logging.info(f"\n**For sigma_k**\t\nModule: {name}")
-                    for axis, param in module.sigma_k.items():
-                        logging.info(f"\t\t  sigma_k[{axis}] = {zero_one_func(param.data)}") #sigma_k
+                    # logging.info(f"\n**For sigma_k**\t\nModule: {name}")
+                    # for axis, param in module.sigma_k.items():
+                    #     logging.info(f"\t\t  sigma_k[{axis}] = {zero_one_func(param.data)}") #sigma_k
 

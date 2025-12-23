@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.init as init
 import numpy as np
 import torch.nn.functional as F
+from src.model.mlp import MLP
 
 class SO2_GCN(torch.nn.Module):
     
@@ -19,24 +20,29 @@ class SO2_GCN(torch.nn.Module):
         }) if not rot_one_axis else nn.ParameterDict({
             'y': nn.Parameter(torch.randn(self.n))}) # should each lie in a disjoint set between [0,\pi)
         
-        self.sigma_k = nn.ParameterDict({
-            'x': nn.Parameter(torch.randn(self.n)),
-            'y': nn.Parameter(torch.randn(self.n)),
-            'z': nn.Parameter(torch.randn(self.n))
-        }) if not rot_one_axis else nn.ParameterDict({
-            'y': nn.Parameter(torch.randn(self.n))}) # should each lie in the set [-1,+1]
+        N = A.shape[0] # Number of nodes on skeleton graph
+        self.sigma_k = nn.ModuleDict({ # consider reducing num_layers to 2
+            'x': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
+            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
+            'z': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)
+        }) if not rot_one_axis else nn.ModuleDict({
+            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)}) # should each lie in the set [-1,+1] or [0,1] ??
         
-        self.weight_mat = nn.ParameterList([nn.Linear(in_dim, hidden_dim, bias=False)
+        self.weight_mat = nn.ModuleList([nn.Linear(in_dim, hidden_dim, bias=False)
                                             for _ in range(3)]) if not rot_one_axis else nn.Linear(in_dim, hidden_dim, bias=False)
 
-        for m in self.weight_mat:
-            init.xavier_uniform_(m.weight, gain=init.calculate_gain('relu')) # Use relu gain if ReLU follows
+        if not self.rot_one_axis:
+            for m in self.weight_mat:
+                init.xavier_uniform_(m.weight, gain=init.calculate_gain('relu')) # Use relu gain if ReLU follows
+        else:
+            init.xavier_uniform_(self.weight_mat.weight, gain=init.calculate_gain('relu'))
 
         self.register_buffer('A', A) # Adjacency matrix
 
 
     def forward(self, x):
         """This function implements the SO(2)-GCN model designed for different axis of rotations."""
+        # x shape: N*M,T,V,C
 
         RxW = 0
         if not self.rot_one_axis:
@@ -56,24 +62,35 @@ class SO2_GCN(torch.nn.Module):
 
     def R_t(self, x, axis='y'):
         """This function helps us achieve rotation equivariance."""
+        # x shape: N*M,T,V,C
+        NM, T, V, C = x.shape
+
         rotation_90_deg = self.rot_mat(axis=axis).to(x.device)
         
-        zero_one_func = lambda a: torch.exp(-(a**2)) # we want it to be close enough to 1 when the angle is relevant.
+        # zero_one_func = lambda a: torch.exp(-(a**2)) # we want it to be close enough to 1 when the angle is relevant.
                                                     # Else it can push it to zeros as far as possible
-        # zero_one_func = lambda a: F.sigmoid(a) # This turned out to give a better result.
+        zero_one_func = lambda a: F.sigmoid(a) # This turned out to give a better result.
 
-        rotate_sum = 0
-        for k in range(self.n):
-            modulus = np.pi/self.n
-            prev_mod = np.pi*(k)/self.n
-            learnt_t = prev_mod + (self.t_k[axis][k] % modulus) # ?? Would the modulus affect the differentiation (calculus) ??
-            exponent =  rotation_90_deg * learnt_t # rotation should be within [0,\pi)
+        sigma = self.sigma_k[axis](x.view(NM,T,-1).unsqueeze(2)).squeeze(-2) # shape: N*M,T,self.n --> unsqueeze and squeeze because of batchnorm shape in MLP.
+        modulus = torch.pi/self.n
+        prev_mod = torch.tensor(list(map(lambda k: torch.pi*(k)/self.n, range(self.n)))).to(x.device)
+        learnt_t = prev_mod + (self.t_k[axis] % modulus) # ?? Would the modulus affect the differentiation (calculus) ??
+        
+        learnt_t = learnt_t.unsqueeze(-1).unsqueeze(-1).repeat(1,3,3) # shape: self.n,3,3
+        exponent =  rotation_90_deg.unsqueeze(0) * learnt_t # rotation should be within [0,\pi)
 
-            rotate = zero_one_func(self.sigma_k[axis][k])*torch.matrix_exp(-exponent) # ?? is the "negative" relevant ?? It would just affect the direction of rotation.
+        # repeat to distribute and allow for multiplication
+        z1_f = zero_one_func(sigma).unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3,3) # shape: N*M,T,self.n,3,3
 
-            rotate_sum += rotate
+        rotate = z1_f*torch.matrix_exp(-exponent) # shape: N*M,T,self.n,3,3
+                                                  # ?? is the "negative" relevant ?? It would just affect the direction of rotation.
+        rotate_sum = rotate.sum(dim=-3) # shape: N*M,T,3,3
 
-        return x.matmul(rotate_sum)
+        # Note: Rotation matrices are pre-multiplied i.e. R.x, where x is a column vector:
+        # Tx3x3 . Tx3xV --> Tx3xV --(transpose)--> TxVx3
+        rot_x = rotate_sum.matmul(x.transpose(-1,-2)) # shape: N*M,T,C,V
+
+        return rot_x.transpose(-1,-2) # shape: N*M,T,V,C
 
     
     def rot_mat(self, axis='y'):
