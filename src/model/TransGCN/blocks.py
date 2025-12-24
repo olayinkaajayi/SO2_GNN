@@ -35,6 +35,9 @@ class SO2_GCN_Block(nn.Module):
 
         self.register_buffer('A', A) # Adjacency matrix
 
+        # Add residual connection
+        self.res_con = nn.Linear(in_channels, out_channels) if in_channels != out_channels else nn.Identity()
+
 
     def forward(self, x):
         # x [shape]: N*M,C,T,V
@@ -54,7 +57,7 @@ class SO2_GCN_Block(nn.Module):
             out = self.gcn(x) # shape: N*M,T,V,C
             out = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@self.regroup(out) # shape: N*M,T,V,C
 
-        out = F.relu(out)
+        out = self.res_con(x) + F.relu(out)
 
         out = out.permute(0,3,1,2).contiguous() # shape: N*M,C,T,V
 
@@ -75,7 +78,6 @@ class SO2_GCN_Block(nn.Module):
         # Add Self-Loops (Calculate A_tilde = A + I)
         N = A.size(0)
         I = torch.eye(N, dtype=A.dtype, device=A.device)
-#########################################################################
         A_tilde = A + I # consider adding a parameter to multiply I (as recommended in GCN paper) ####################
         
         # Calculate Degree Matrix D_tilde
