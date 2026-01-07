@@ -25,13 +25,13 @@ class SO2_GCN_Block(nn.Module):
                                             for _ in range(self.heads)]
                                     )
 
-            self.regroup = MLP(num_layers=1, input_dim=3*self.heads,
+            self.regroup = MLP(num_layers=1, input_dim=3*3,
                                hidden_dim=int(0.6*self.out_channels),
                                output_dim=self.out_channels)
         else:
             # consider setting rot_one_axis= True for the input feature i.e. in_dim=3
             self.gcn = SO2_GCN(in_dim=3,hidden_dim=self.out_channels, A=A, angle_partitions=angle_partitions, rot_one_axis=rot_one_axis, **kwargs)
-            self.regroup = nn.Linear(3,self.out_channels)
+            self.regroup = nn.Linear(3*3,self.out_channels)
 
         self.register_buffer('A', A) # Adjacency matrix
 
@@ -60,6 +60,7 @@ class SO2_GCN_Block(nn.Module):
             out = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@self.regroup(out) # shape: N*M,T,V,C
         else:
             out = self.gcn(x) # shape: N*M,T,V,C
+            out = torch.concatenate(out, dim=-1).to(x.device)
             out = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@self.regroup(out) # shape: N*M,T,V,C
 
         out = self.res_con(x) + F.relu(out)
