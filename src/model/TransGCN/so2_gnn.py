@@ -33,11 +33,11 @@ class SO2_GCN(torch.nn.Module):
         """This function implements the SO(2)-GCN model designed for different axis of rotations."""
         # x shape: N*M,T,V,C
 
-        Rx = 0
         if not self.rot_one_axis:
+            Rx = []
             ax = ['x','y','z']
             for i in range(len(ax)):
-                Rx += self.R_t(x, axis=ax[i])
+                Rx.append( self.R_t(x, axis=ax[i]) )
         else:
             Rx = self.R_t(x, axis='y')
 

@@ -44,13 +44,18 @@ class SO2_GCN_Block(nn.Module):
         x = x.permute(0,2,3,1).contiguous() # shape: N*M,T,V,C
 
         if self.in_channels > 3: # 3 because we have 3D space: x,y,z
-            out = []
+            out = {'x':[], 'y':[], 'z':[]}
             # May be able to avoid for loop here by putting the heads into the linear layers
             for i in range(self.heads):
                 y = self.proj[i](x)
-                y = self.gcn[i](y)
-                out.append(y)
+                x_, y_, z_ = self.gcn[i](y)
+                out['x'].append(x_); out['y'].append(y_); out['z'].append(z_)
 
+            # The other option is to pass the stacked tensors through a linear layer, then pass that output
+            out = [torch.stack(out['x']).to(x.device).sum(dim=0),
+                   torch.stack(out['y']).to(x.device).sum(dim=0),
+                   torch.stack(out['z']).to(x.device).sum(dim=0)] # Each should have shape: N*M,T,V,C
+            
             out = torch.concatenate(out, dim=-1).to(x.device)
             out = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@self.regroup(out) # shape: N*M,T,V,C
         else:
