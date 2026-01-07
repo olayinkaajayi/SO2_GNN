@@ -25,13 +25,13 @@ class SO2_GCN_Block(nn.Module):
                                             for _ in range(self.heads)]
                                     )
 
-            self.regroup = MLP(num_layers=1, input_dim=3*self.heads,
+            self.regroup = MLP(num_layers=1, input_dim=3*3*self.heads,
                                hidden_dim=int(0.6*self.out_channels),
                                output_dim=self.out_channels)
         else:
             # consider setting rot_one_axis= True for the input feature i.e. in_dim=3
             self.gcn = SO2_GCN(in_dim=3,hidden_dim=self.out_channels, A=A, angle_partitions=angle_partitions, rot_one_axis=rot_one_axis, **kwargs)
-            self.regroup = nn.Linear(3,self.out_channels)
+            self.regroup = nn.Linear(3*3,self.out_channels)
 
         self.register_buffer('A', A) # Adjacency matrix
 
@@ -44,17 +44,25 @@ class SO2_GCN_Block(nn.Module):
         x = x.permute(0,2,3,1).contiguous() # shape: N*M,T,V,C
 
         if self.in_channels > 3: # 3 because we have 3D space: x,y,z
-            out = []
+            out = {'x':[], 'y':[], 'z':[]}
             # May be able to avoid for loop here by putting the heads into the linear layers
             for i in range(self.heads):
                 y = self.proj[i](x)
-                y = self.gcn[i](y)
-                out.append(y)
+                x_, y_, z_ = self.gcn[i](y)
+                out['x'].append(x_); out['y'].append(y_); out['z'].append(z_)
 
-            out = torch.concatenate(out, dim=-1).to(x.device)
+            out = [torch.concatenate(out['x'], dim=-1).to(x.device),
+                   torch.concatenate(out['y'], dim=-1).to(x.device),
+                   torch.concatenate(out['z'], dim=-1).to(x.device)] # Each should have shape: N*M,T,V,C*self.head
+            
+            # Another option is to pass the stacked tensors each through a separate linear layer,
+            # then pass that output to be concatenated and weighed
+            
+            out = torch.concatenate(out, dim=-1).to(x.device) # shape: N*M,T,V,C*self.head*3
             out = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@self.regroup(out) # shape: N*M,T,V,C
         else:
             out = self.gcn(x) # shape: N*M,T,V,C
+            out = torch.concatenate(out, dim=-1).to(x.device)
             out = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@self.regroup(out) # shape: N*M,T,V,C
 
         out = self.res_con(x) + F.relu(out)
