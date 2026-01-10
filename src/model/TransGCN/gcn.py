@@ -15,6 +15,9 @@ class GCN(torch.nn.Module):
 
         self.register_buffer('A', A) # Adjacency matrix
 
+        # Add residual connection
+        self.res_con = nn.Linear(in_dim, hidden_dim) if in_dim != hidden_dim else nn.Identity()
+
 
     def forward(self, x):
         """This function implements the SO(2)-GCN model designed for different axis of rotations."""
@@ -24,7 +27,7 @@ class GCN(torch.nn.Module):
 
         D_A_DxW = self.get_normalized_adjacency(self.A, batch_size=x.size(0)).matmul(self.weight_mat(x))
 
-        out = F.relu(D_A_DxW)
+        out = self.res_con(x) + F.relu(D_A_DxW)
 
         out = out.permute(0,3,1,2).contiguous() # shape: N*M,C,T,V
 
