@@ -25,7 +25,11 @@ class SO2_GCN_Block(nn.Module):
                                             for _ in range(self.heads)]
                                     )
 
-            self.regroup = MLP(num_layers=1, input_dim=3*3*self.heads,
+            # self.merge_heads = nn.ModuleDict( {'x': nn.Linear(self.heads*3, o_dim),
+            #                                    'y': nn.Linear(self.heads*3, o_dim),
+            #                                    'z': nn.Linear(self.heads*3, o_dim)})
+
+            self.regroup = MLP(num_layers=1, input_dim=3*3*self.heads, # change to 3*o_dim for other case
                                hidden_dim=int(0.6*self.out_channels),
                                output_dim=self.out_channels)
         else:
@@ -54,6 +58,10 @@ class SO2_GCN_Block(nn.Module):
             out = [torch.concatenate(out['x'], dim=-1).to(x.device),
                    torch.concatenate(out['y'], dim=-1).to(x.device),
                    torch.concatenate(out['z'], dim=-1).to(x.device)] # Each should have shape: N*M,T,V,C*self.head
+            
+            # out = [self.merge_heads['x'](torch.concatenate(out['x'], dim=-1).to(x.device)),
+            #        self.merge_heads['y'](torch.concatenate(out['y'], dim=-1).to(x.device)),
+            #        self.merge_heads['z'](torch.concatenate(out['z'], dim=-1).to(x.device))] # Each should have shape: N*M,T,V,o_dim
             
             # Another option is to pass the stacked tensors each through a separate linear layer,
             # then pass that output to be concatenated and weighed
