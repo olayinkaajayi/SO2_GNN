@@ -36,8 +36,9 @@ class SO2_GCN(torch.nn.Module):
         Rx = 0
         if not self.rot_one_axis:
             ax = ['x','y','z']
+            Rx = x
             for i in range(len(ax)):
-                Rx += self.R_t(x, axis=ax[i])
+                Rx = self.R_t(Rx, axis=ax[i])
         else:
             Rx = self.R_t(x, axis='y')
 
@@ -56,7 +57,7 @@ class SO2_GCN(torch.nn.Module):
                                                     # Else it can push it to zeros as far as possible
         zero_one_func = lambda a: F.sigmoid(a) # This turned out to give a better result.
 
-        sigma = self.sigma_k[axis](x.view(NM,T,-1).unsqueeze(2)).squeeze(-2) # shape: N*M,T,self.n --> unsqueeze and squeeze because of batchnorm shape in MLP.
+        sigma = self.sigma_k[axis](x.reshape(NM,T,-1).unsqueeze(2)).squeeze(-2) # shape: N*M,T,self.n --> unsqueeze and squeeze because of batchnorm shape in MLP.
         modulus = torch.pi/self.n
         prev_mod = torch.tensor(list(map(lambda k: torch.pi*(k)/self.n, range(self.n)))).to(x.device)
         learnt_t = prev_mod + (self.t_k[axis] % modulus) # ?? Would the modulus affect the differentiation (calculus) ??
