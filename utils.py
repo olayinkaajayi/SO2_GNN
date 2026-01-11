@@ -142,8 +142,8 @@ def create_aligned_dataset(file_list, align):
                 aligned_data = aligned_data.transpose(0, 2, 4, 3, 1).reshape(N, T, -1) # transpose gives: N, T, M, V, C
             
             else: # included this to allow for deactivating "align"
-                aligned_data = aligned_data.transpose(0, 2, 4, 3, 1).reshape(N, T, -1) # transpose gives: N, T, M, V, C
-            aligned_set[split] = aligned_data # N, T, MVC
+                aligned_data = data.transpose(0, 2, 4, 3, 1).reshape(N, T, -1) # transpose gives: N, T, M, V, C
+            aligned_set[split] = aligned_data # N, T, M, V, C
 
         # Delete unaligned saved files
         # I added this part as we would not be needing the files anymore

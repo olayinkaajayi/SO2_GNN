@@ -25,8 +25,12 @@ dataset_args:
   vel: False
   random_rot: True
   sort: False
-  train_batch_size: 16
-  eval_batch_size: 16
+  # Reduced dataset
+  load_part: False
+  load_portion: 1.0
+  # Batch size
+  train_batch_size: 64
+  eval_batch_size: 128
 
 # Model
 model_type: Trans-GCN
@@ -47,7 +51,7 @@ model_args:
 optimizer: SGD
 optimizer_args:
   SGD:
-    lr: 0.01
+    lr: 0.1
     momentum: 0.9
     nesterov: True
     weight_decay: 0.0002

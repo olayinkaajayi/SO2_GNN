@@ -14,7 +14,7 @@ dataset_args:
   hop: 1
   dilation: 2
   # Feeder params
-  data_path: ./data/ntu_ready/NTU60_CV_aligned.npz
+  data_path: ./data/ntu_ready/NTU60_CV.npz
   window_size: 64
   p_interval:
     - 0.5

@@ -5,7 +5,7 @@ debug: False
 pretrained_path:
 work_dir: ./workdir
 # Options are: exp or sigmoid
-experiment_name: sigma_k--> MLP; zero_one_func = sigmoid
+experiment_name: Training and testing without aligned skeleton
 
 # Data Loader
 dataset: ntu60
@@ -16,7 +16,7 @@ dataset_args:
   hop: 1
   dilation: 2
   # Feeder params
-  data_path: ./data/ntu_ready/NTU60_CV_aligned.npz
+  data_path: ./data/ntu_ready/NTU60_CV.npz
   window_size: 64
   p_interval:
     - 0.5

@@ -13,7 +13,7 @@ dataset_args:
   # Flags to select denoising techniques
   transform_flag:
     translation: True
-    orient: True
+    orient: False
   stat_path: ./data/ntu
   data_path: ./data
   save_path: ./data/ntu_ready
