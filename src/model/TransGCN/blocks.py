@@ -15,9 +15,10 @@ class SO2_GCN_Block(nn.Module):
         self.out_channels = out_channels
         o_dim = out_channels//self.heads
         o_dim = o_dim if o_dim >= 32 else 32 # set minimum head size to 32
+        use_bias = False
 
         if self.in_channels > 3:
-            self.proj = nn.ModuleList([nn.Linear(self.in_channels,3) for _ in range(self.heads)])
+            self.proj = nn.ModuleList([nn.Linear(self.in_channels,3, bias=use_bias) for _ in range(self.heads)])
 
             self.gcn = nn.ModuleList( [
                                     SO2_GCN(in_dim=3, hidden_dim=o_dim, A=A, angle_partitions=angle_partitions,
@@ -25,18 +26,23 @@ class SO2_GCN_Block(nn.Module):
                                             for _ in range(self.heads)]
                                     )
 
-            self.regroup = MLP(num_layers=1, input_dim=3*self.heads,
-                               hidden_dim=int(0.6*self.out_channels),
-                               output_dim=self.out_channels)
+            # self.regroup = MLP(num_layers=1, input_dim=3*self.heads,
+            #                    hidden_dim=int(0.6*self.out_channels),
+            #                    output_dim=self.out_channels)
+            self.regroup = nn.Linear(3*self.heads,self.out_channels, bias=use_bias)
         else:
             # consider setting rot_one_axis= True for the input feature i.e. in_dim=3
             self.gcn = SO2_GCN(in_dim=3,hidden_dim=self.out_channels, A=A, angle_partitions=angle_partitions, rot_one_axis=rot_one_axis, **kwargs)
-            self.regroup = nn.Linear(3,self.out_channels)
+            self.regroup = nn.Linear(3,self.out_channels, bias=use_bias)
 
         self.register_buffer('A', A) # Adjacency matrix
 
-        # Add residual connection
-        self.res_con = nn.Linear(in_channels, out_channels) if in_channels != out_channels else nn.Identity()
+        self.use_skip_conn = False
+        if self.use_skip_conn:
+            # Add residual connection
+            self.res_con = nn.Linear(in_channels, out_channels, bias= use_bias) if in_channels != out_channels else nn.Identity()
+        else:
+            self.res_con = lambda a: 0 # just adds zero
 
 
     def forward(self, x):

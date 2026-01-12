@@ -5,7 +5,7 @@ debug: False
 pretrained_path:
 work_dir: ./workdir
 # Options are: exp or sigmoid
-experiment_name: Training and testing without aligned skeleton
+experiment_name: Default model RxRyRz (bias=False), no skip conn, 40% dataset.
 
 # Data Loader
 dataset: ntu60
