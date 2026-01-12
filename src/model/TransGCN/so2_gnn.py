@@ -28,6 +28,9 @@ class SO2_GCN(torch.nn.Module):
         }) if not rot_one_axis else nn.ModuleDict({
             'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)}) # should each lie in the set [-1,+1] or [0,1] ??
         
+        self.swap_wt_identity = False
+        self.threshold = 0.01
+
 
     def forward(self, x):
         """This function implements the SO(2)-GCN model designed for different axis of rotations."""
@@ -65,11 +68,16 @@ class SO2_GCN(torch.nn.Module):
         learnt_t = learnt_t.unsqueeze(-1).unsqueeze(-1).repeat(1,3,3) # shape: self.n,3,3
         exponent =  rotation_90_deg.unsqueeze(0) * learnt_t # rotation should be within [0,\pi)
 
-        # repeat to distribute and allow for multiplication
-        z1_f = zero_one_func(sigma).unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3,3) # shape: N*M,T,self.n,3,3
+        if not self.swap_wt_identity:
+            # repeat to distribute and allow for multiplication
+            z1_f = zero_one_func(sigma).unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3,3) # shape: N*M,T,self.n,3,3
+            rotate = z1_f*torch.matrix_exp(-exponent) # shape: N*M,T,self.n,3,3
+                                                    # ?? is the "negative" relevant ?? It would just affect the direction of rotation.
+        else:
+            z1_f = zero_one_func(sigma)
+            rot_mat = torch.matrix_exp(-exponent) # ?? is the "negative" relevant ?? It would just affect the direction of rotation.
+            rotate = self.rot_or_iden(z1_f, rot_mat) # shape: N*M,T,self.n,3,3
 
-        rotate = z1_f*torch.matrix_exp(-exponent) # shape: N*M,T,self.n,3,3
-                                                  # ?? is the "negative" relevant ?? It would just affect the direction of rotation.
         rotate_sum = rotate.sum(dim=-3) # shape: N*M,T,3,3
 
         # Note: Rotation matrices are pre-multiplied i.e. R.x, where x is a column vector:
@@ -77,6 +85,29 @@ class SO2_GCN(torch.nn.Module):
         rot_x = rotate_sum.matmul(x.transpose(-1,-2)) # shape: N*M,T,C,V
 
         return rot_x.transpose(-1,-2) # shape: N*M,T,V,C
+    
+    
+    def rot_or_iden(self, zero_one, rot_mat):
+        """
+            For sigma_k values < threshold, we don't rotate, we just multiply by the Identity matrix.
+            This is equivalent to just applying a GCN directly.
+        """
+        NM, T, n = zero_one.shape
+
+        rot_mat = rot_mat.unsqueeze(0).unsqueeze(0).repeat(NM,T,1,1,1) # shape: N*M,T,self.n,3,3
+
+        i,j,k = torch.where(zero_one < self.threshold)
+        rot_mat[i,j,k,:,:] = torch.eye(3).to(zero_one.device)
+        
+        # zero_one = torch.where(zero_one < self.threshold, 1.0, zero_one)
+
+        # repeat to distribute and allow for multiplication
+        zero_one = zero_one.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3,3) # shape: N*M,T,self.n,3,3
+
+        rotate = zero_one*rot_mat # shape: N*M,T,self.n,3,3
+
+        return rotate # shape: N*M,T,self.n,3,3
+
 
     
     def rot_mat(self, axis='y'):
