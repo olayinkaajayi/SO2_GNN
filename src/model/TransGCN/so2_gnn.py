@@ -18,7 +18,7 @@ class SO2_GCN(torch.nn.Module):
             'y': nn.Parameter(torch.randn(self.n)),
             'z': nn.Parameter(torch.randn(self.n))
         }) if not rot_one_axis else nn.ParameterDict({
-            'y': nn.Parameter(torch.randn(self.n))}) # should each lie in a disjoint set between [0,\pi)
+            'y': nn.Parameter(torch.randn(self.n))}) 
         
         N = A.shape[0] # Number of nodes on skeleton graph
         self.sigma_k = nn.ModuleDict({ # consider reducing num_layers to 2
@@ -26,10 +26,13 @@ class SO2_GCN(torch.nn.Module):
             'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
             'z': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)
         }) if not rot_one_axis else nn.ModuleDict({
-            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)}) # should each lie in the set [-1,+1] or [0,1] ??
+            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)})
         
         self.swap_wt_identity = False
         self.threshold = 0.01
+        
+        self.partition = True # decide if we partition the angles or just learn across the full range.
+        self.strategy = 'circular-2' # options: 'default', 'circular', 'circular-2', 'tanh-1', 'tanh-2', 'sigmoid'
 
 
     def forward(self, x):
@@ -61,9 +64,7 @@ class SO2_GCN(torch.nn.Module):
         zero_one_func = lambda a: F.sigmoid(a) # This turned out to give a better result.
 
         sigma = self.sigma_k[axis](x.reshape(NM,T,-1).unsqueeze(2)).squeeze(-2) # shape: N*M,T,self.n --> unsqueeze and squeeze because of batchnorm shape in MLP.
-        modulus = torch.pi/self.n
-        prev_mod = torch.tensor(list(map(lambda k: torch.pi*(k)/self.n, range(self.n)))).to(x.device)
-        learnt_t = prev_mod + (self.t_k[axis] % modulus) # ?? Would the modulus affect the differentiation (calculus) ??
+        learnt_t = self.learn_angle_strategies(axis,device=x.device)
         
         learnt_t = learnt_t.unsqueeze(-1).unsqueeze(-1).repeat(1,3,3) # shape: self.n,3,3
         exponent =  rotation_90_deg.unsqueeze(0) * learnt_t # rotation should be within [0,\pi)
@@ -73,9 +74,11 @@ class SO2_GCN(torch.nn.Module):
             z1_f = zero_one_func(sigma).unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3,3) # shape: N*M,T,self.n,3,3
             rotate = z1_f*torch.matrix_exp(-exponent) # shape: N*M,T,self.n,3,3
                                                     # ?? is the "negative" relevant ?? It would just affect the direction of rotation.
+                                                    # Yes the "negative" is important! Experiments show that the model does not "train" without it.
+                                                    # More like we have no minima to descend to.
         else:
             z1_f = zero_one_func(sigma)
-            rot_mat = torch.matrix_exp(-exponent) # ?? is the "negative" relevant ?? It would just affect the direction of rotation.
+            rot_mat = torch.matrix_exp(-exponent)
             rotate = self.rot_or_iden(z1_f, rot_mat) # shape: N*M,T,self.n,3,3
 
         rotate_sum = rotate.sum(dim=-3) # shape: N*M,T,3,3
@@ -85,6 +88,45 @@ class SO2_GCN(torch.nn.Module):
         rot_x = rotate_sum.matmul(x.transpose(-1,-2)) # shape: N*M,T,C,V
 
         return rot_x.transpose(-1,-2) # shape: N*M,T,V,C
+
+    
+    def learn_angle_strategies(self, axis, device='cuda:0'):
+
+        if self.partition:
+            modulus = torch.pi/self.n
+            prev_mod = torch.tensor(list(map(lambda k: torch.pi*(k)/self.n, range(self.n)))).to(device)
+        else:
+            modulus = torch.pi
+            prev_mod = 0
+        
+        if self.strategy=='default':
+            offset = (self.t_k[axis] % modulus) # % modulus introduces discontinuties and affects differentiation
+
+        elif self.strategy=='circular':
+            offset = torch.atan2(
+                torch.sin(self.t_k[axis]),
+                torch.cos(self.t_k[axis])
+            ) * (modulus / torch.pi) # range: (-modulus, modulus)
+
+        elif self.strategy=='circular-2':
+            offset = (0.5 * torch.atan2(
+                torch.sin(self.t_k[axis]),
+                torch.cos(self.t_k[axis])
+            ) + torch.pi)* (modulus / torch.pi) # range: [0, modulus)
+
+        elif self.strategy=='tanh-1':
+            offset = torch.tanh(self.t_k[axis]) * modulus # range: (-modulus, modulus)
+
+        elif self.strategy=='tanh-2':
+            offset = (torch.tanh(self.t_k[axis]) + 1) * 0.5 * modulus # range: [0, modulus)
+
+        elif self.strategy=='sigmoid':
+            offset = torch.sigmoid(self.t_k[axis]) * modulus # range: [0, modulus)
+
+
+        learnt_t = prev_mod + offset
+
+        return learnt_t
     
     
     def rot_or_iden(self, zero_one, rot_mat):

@@ -15,7 +15,7 @@ class SO2_GCN_Block(nn.Module):
         self.out_channels = out_channels
         o_dim = out_channels//self.heads
         o_dim = o_dim if o_dim >= 32 else 32 # set minimum head size to 32
-        use_bias = False
+        use_bias = True
 
         if self.in_channels > 3:
             self.proj = nn.ModuleList([nn.Linear(self.in_channels,3, bias=use_bias) for _ in range(self.heads)])
@@ -37,7 +37,7 @@ class SO2_GCN_Block(nn.Module):
 
         self.register_buffer('A', A) # Adjacency matrix
 
-        self.use_skip_conn = False
+        self.use_skip_conn = True
         if self.use_skip_conn:
             # Add residual connection
             self.res_con = nn.Linear(in_channels, out_channels, bias= use_bias) if in_channels != out_channels else nn.Identity()
