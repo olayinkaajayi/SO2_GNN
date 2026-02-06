@@ -103,7 +103,7 @@ def align_skeleton(data):
     # will be different from a -45 degrees view, and 0 degrees view.
     ###-----------------------------------------------------------
 
-            # Use Nodes (2,1) as y-axis, Nodes (17,13) as x-axis
+            # Use Nodes (2,1) as y-axis, Nodes (17,13) as x-axis (after using Gram-Schmidt algorithm to make sure it is perpendicular to y-axis: node (2,1))
             # and their cross-product as z-axis
             # This way we rotate all the skeletons to face the same
             # direction (referencing the first skeleton in the frame)
