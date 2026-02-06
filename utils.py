@@ -122,6 +122,11 @@ def align_skeleton(data):
             v2 = np.reshape(v2,(3,1))
             v3 = np.reshape(v3,(3,1))
 
+            # February 6th 2026 (11:08pm): I was right! This alignment removes the variation in view.
+            # That is to say, it normalises the view of all the skeletons.
+            # Hence all skeletons (both for train and test samples) face the same place,
+            # which is not supposed to be the case!
+
             R = np.hstack([v2,v3,v1])
             for t in range(T):
                 trans_sample = (np.linalg.inv(R))@(sample[:,t,:]) # -d
