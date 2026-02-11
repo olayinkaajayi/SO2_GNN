@@ -109,10 +109,10 @@ class SO2_GCN(torch.nn.Module):
             ) * (modulus / torch.pi) # range: (-modulus, modulus)
 
         elif self.strategy=='circular-2':
-            offset = (0.5 * torch.atan2(
+            offset = (0.5 * (torch.atan2(
                 torch.sin(self.t_k[axis]),
                 torch.cos(self.t_k[axis])
-            ) + torch.pi)* (modulus / torch.pi) # range: [0, modulus)
+            ) + torch.pi))* (modulus / torch.pi) # range: [0, modulus)
 
         elif self.strategy=='tanh-1':
             offset = torch.tanh(self.t_k[axis]) * modulus # range: (-modulus, modulus)
