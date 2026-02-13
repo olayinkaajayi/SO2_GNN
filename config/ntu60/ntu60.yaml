@@ -5,7 +5,7 @@ debug: False
 pretrained_path:
 work_dir: ./workdir
 # Options are: exp or sigmoid
-experiment_name: Default model RxRyRz, strategy for learn_t = circular-2, partition=True, 20 partitions, with skip, 40% dataset.
+experiment_name: (T1--> 13 Feb)
 
 # Data Loader
 dataset: ntu60
