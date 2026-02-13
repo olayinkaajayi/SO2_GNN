@@ -13,14 +13,15 @@ class SO2_GCN(torch.nn.Module):
         self.n = angle_partitions # partitions of interval
         self.rot_one_axis = rot_one_axis # rotate across multiple axis
 
-        self.t_k = nn.ParameterDict({
-            'x': nn.Parameter(torch.randn(self.n)),
-            'y': nn.Parameter(torch.randn(self.n)),
-            'z': nn.Parameter(torch.randn(self.n))
-        }) if not rot_one_axis else nn.ParameterDict({
-            'y': nn.Parameter(torch.randn(self.n))}) 
-        
         N = A.shape[0] # Number of nodes on skeleton graph
+
+        self.t_k = nn.ModuleDict({ # consider reducing num_layers to 2
+            'x': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
+            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
+            'z': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)
+        }) if not rot_one_axis else nn.ModuleDict({
+            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)})
+        
         self.sigma_k = nn.ModuleDict({ # consider reducing num_layers to 2
             'x': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
             'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
@@ -64,10 +65,10 @@ class SO2_GCN(torch.nn.Module):
         zero_one_func = lambda a: F.sigmoid(a) # This turned out to give a better result.
 
         sigma = self.sigma_k[axis](x.reshape(NM,T,-1).unsqueeze(2)).squeeze(-2) # shape: N*M,T,self.n --> unsqueeze and squeeze because of batchnorm shape in MLP.
-        learnt_t = self.learn_angle_strategies(axis,device=x.device)
+        learnt_t = self.learn_angle_strategies(x, axis,device=x.device) # shape: N*M,T,self.n
         
-        learnt_t = learnt_t.unsqueeze(-1).unsqueeze(-1).repeat(1,3,3) # shape: self.n,3,3
-        exponent =  rotation_90_deg.unsqueeze(0) * learnt_t # rotation should be within [0,\pi)
+        learnt_t = learnt_t.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3,3) # shape: N*M,T,self.n,3,3
+        exponent =  rotation_90_deg.unsqueeze(0) * learnt_t # shape: N*M,T,self.n,3,3
 
         if not self.swap_wt_identity:
             # repeat to distribute and allow for multiplication
@@ -90,7 +91,11 @@ class SO2_GCN(torch.nn.Module):
         return rot_x.transpose(-1,-2) # shape: N*M,T,V,C
 
     
-    def learn_angle_strategies(self, axis, device='cuda:0'):
+    def learn_angle_strategies(self, x, axis, device='cuda:0'):
+        """Function to account for the different strategies we can employ to learn t_k for distinct partitions."""
+        # x shape: N*M,T,V,C
+        NM, T, V, C = x.shape
+        tk = self.t_k[axis](x.reshape(NM,T,-1).unsqueeze(2)).squeeze(-2) # shape: N*M,T,self.n --> unsqueeze and squeeze because of batchnorm shape in MLP.
 
         if self.partition:
             modulus = torch.pi/self.n
@@ -110,9 +115,9 @@ class SO2_GCN(torch.nn.Module):
 
         elif self.strategy=='circular-2':
             offset = (0.5 * (torch.atan2(
-                torch.sin(self.t_k[axis]),
-                torch.cos(self.t_k[axis])
-            ) + torch.pi))* (modulus / torch.pi) # range: [0, modulus)
+                torch.sin(tk),
+                torch.cos(tk)
+            ) + torch.pi))* (modulus / torch.pi) # range: [0, modulus) # shape: N*M,T,self.n
 
         elif self.strategy=='tanh-1':
             offset = torch.tanh(self.t_k[axis]) * modulus # range: (-modulus, modulus)
