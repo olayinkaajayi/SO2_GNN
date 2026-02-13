@@ -160,19 +160,19 @@ class SO2_GCN(torch.nn.Module):
         rot = torch.zeros([self.n,self.n])
 
         if axis == 'x':
-            eta_yz = torch.tensor([[0,0,0], # R_x_90
+            eta_yz = torch.tensor([[1,0,0], # R_x_90
                                     [0,0,-1],
                                     [0,1,0]])
             rot = eta_yz
         elif axis == 'z':
             eta_xy = torch.tensor([[0,-1,0], # R_z_90
                                     [1,0,0],
-                                    [0,0,0]])
+                                    [0,0,1]])
             rot = eta_xy
 
         else:
             eta_xz = torch.tensor([[0,0,-1], # R_y_90
-                                    [0,0,0],
+                                    [0,1,0],
                                     [1,0,0]])
             rot = eta_xz
 
