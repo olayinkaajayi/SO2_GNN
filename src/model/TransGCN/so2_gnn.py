@@ -16,11 +16,11 @@ class SO2_GCN(torch.nn.Module):
         N = A.shape[0] # Number of nodes on skeleton graph
 
         self.t_k = nn.ModuleDict({ # consider reducing num_layers to 2
-            'x': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
-            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
-            'z': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)
+            'x': nn.Linear(N*in_dim, self.n),
+            'y': nn.Linear(N*in_dim, self.n),
+            'z': nn.Linear(N*in_dim, self.n)
         }) if not rot_one_axis else nn.ModuleDict({
-            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)})
+            'y': nn.Linear(N*in_dim, self.n)})
         
         self.sigma_k = nn.ModuleDict({ # consider reducing num_layers to 2
             'x': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
@@ -95,7 +95,8 @@ class SO2_GCN(torch.nn.Module):
         """Function to account for the different strategies we can employ to learn t_k for distinct partitions."""
         # x shape: N*M,T,V,C
         NM, T, V, C = x.shape
-        tk = self.t_k[axis](x.reshape(NM,T,-1).unsqueeze(2)).squeeze(-2) # shape: N*M,T,self.n --> unsqueeze and squeeze because of batchnorm shape in MLP.
+        tk = self.t_k[axis](x.reshape(NM,T,-1)) # shape: N*M,T,self.n
+        tk = tk.clamp(min=0, max=torch.pi) # since this is an argument for a trig function.
 
         if self.partition:
             modulus = torch.pi/self.n
@@ -114,10 +115,10 @@ class SO2_GCN(torch.nn.Module):
             ) * (modulus / torch.pi) # range: (-modulus, modulus)
 
         elif self.strategy=='circular-2':
-            offset = (0.5 * (torch.atan2(
+            offset = torch.atan2(
                 torch.sin(tk),
                 torch.cos(tk)
-            ) + torch.pi))* (modulus / torch.pi) # range: [0, modulus) # shape: N*M,T,self.n
+            )*(modulus / torch.pi) # range: [0, modulus) # shape: N*M,T,self.n
 
         elif self.strategy=='tanh-1':
             offset = torch.tanh(self.t_k[axis]) * modulus # range: (-modulus, modulus)
@@ -165,19 +166,19 @@ class SO2_GCN(torch.nn.Module):
         rot = torch.zeros([self.n,self.n])
 
         if axis == 'x':
-            eta_yz = torch.tensor([[1,0,0], # R_x_90
+            eta_yz = torch.tensor([[0,0,0], # R_x_90
                                     [0,0,-1],
                                     [0,1,0]])
             rot = eta_yz
         elif axis == 'z':
             eta_xy = torch.tensor([[0,-1,0], # R_z_90
                                     [1,0,0],
-                                    [0,0,1]])
+                                    [0,0,0]])
             rot = eta_xy
 
         else:
             eta_xz = torch.tensor([[0,0,-1], # R_y_90
-                                    [0,1,0],
+                                    [0,0,0],
                                     [1,0,0]])
             rot = eta_xz
 
