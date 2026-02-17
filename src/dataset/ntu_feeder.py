@@ -38,13 +38,33 @@ class NTU_Feeder(Dataset):
         if normalization:
             self.get_mean_map()
 
+    # def load_partial_data(self):
+    #      N = len(self.data)
+    #      sub_list = np.random.choice(a=range(N), size=int(N*self.load_portion), replace=False)
+    #      tmp = self.data
+    #      self.data = tmp[sub_list]
+    #      tmp = self.label
+    #      self.label = tmp[sub_list]
+
     def load_partial_data(self):
-         N = len(self.data)
-         sub_list = np.random.choice(a=range(N), size=int(N*self.load_portion), replace=False)
-         tmp = self.data
-         self.data = tmp[sub_list]
-         tmp = self.label
-         self.label = tmp[sub_list]
+        """This stratefied subsampling ensures we have all classes present in our partial dataset."""
+        unique_classes = np.unique(self.label)
+        selected_indices = []
+
+        for c in unique_classes:
+            class_indices = np.where(self.label == c)[0]
+            n_class = len(class_indices)
+
+            # number to sample from this class
+            n_sample = max(1, int(n_class * self.load_portion))
+
+            class_sub = np.random.choice(class_indices, size=n_sample, replace=False)
+            selected_indices.extend(class_sub)
+
+        selected_indices = np.array(selected_indices)
+
+        self.data = self.data[selected_indices]
+        self.label = self.label[selected_indices]
 
     def load_data(self):
         # data: N C V T M
