@@ -27,8 +27,8 @@ dataset_args:
   random_rot: True
   sort: False
   # Reduced dataset
-  load_part: False
-  load_portion: 1.0
+  load_part: True
+  load_portion: 0.4
   # Batch size
   train_batch_size: 64
   eval_batch_size: 128
