@@ -10,10 +10,11 @@ class Input_Branch(nn.Module):
 
         module_list = [
             Basic_Block(num_channel, 64, A, so2_arg, use_att, **kwargs),
+            Basic_Block(64, 64, A, so2_arg, use_att, **kwargs),
             Basic_Block(64, 64, A, so2_arg, use_att, **kwargs)
         ]
 
-        self.bn = nn.BatchNorm2d(num_channel)
+        self.bn = nn.BatchNorm2d(num_channel) # consider removing this batchnorm
         self.layers = nn.ModuleList(module_list)
 
     def forward(self, x):
@@ -42,7 +43,9 @@ class TransGCN(nn.Module):
         module_list = [
             Basic_Block(64, 128, A, so2_arg, use_att, stride=2, **kwargs),
             Basic_Block(128, 128, A, so2_arg, use_att, **kwargs),
+            Basic_Block(128, 128, A, so2_arg, use_att, **kwargs),
             Basic_Block(128, 256, A, so2_arg, use_att, stride=2, **kwargs), # may not need 256
+            Basic_Block(256, 256, A, so2_arg, use_att, **kwargs),
             Basic_Block(256, 256, A, so2_arg, use_att, **kwargs)
         ]
         self.main_stream = nn.ModuleList(module_list)
