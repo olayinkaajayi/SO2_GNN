@@ -37,7 +37,8 @@ dataset_args:
 model_type: MPGCN
 model_args:
   use_att: True
-  kernel_size: [3,2]
+  # ker: window, max_graph_dist
+  kernel_size: [3,0]
   dilations: [2,3]
   reduct_ratio: 2
 

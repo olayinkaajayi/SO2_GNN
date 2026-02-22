@@ -188,7 +188,7 @@ class SpatialGraphConv(nn.Module):
     def __init__(self, in_channels, out_channels, max_graph_distance):
         super(SpatialGraphConv, self).__init__()
 
-        # spatial class number (distance = 0 for class 0, distance = 1 for class 1, ...)
+        # max_graph_distance = 0 because we have just one graph and no partitions (multiple subgraphs).
         self.s_kernel_size = max_graph_distance + 1
 
         # weights of different spatial classes
@@ -204,7 +204,7 @@ class SpatialGraphConv(nn.Module):
         x = x.view(n, self.s_kernel_size, kc//self.s_kernel_size, t, v)
 
         # spatial graph convolution
-        x = torch.einsum('nkctv,kvw->nctw', (x, A[:self.s_kernel_size])).contiguous()
+        x = torch.einsum('nkctv,vw->nctw', (x, A[:self.s_kernel_size])).contiguous()
 
         return x
     
