@@ -7,7 +7,7 @@ from src.model.mlp import MLP
 
 class SO2_GCN(torch.nn.Module):
     
-    def __init__(self, in_dim, hidden_dim, A, angle_partitions=4, rot_one_axis=False, **kwargs):
+    def __init__(self, in_dim, A, angle_partitions=4, rot_one_axis=False, **kwargs):
         super(SO2_GCN, self).__init__()
 
         self.n = angle_partitions # partitions of interval
@@ -22,11 +22,11 @@ class SO2_GCN(torch.nn.Module):
         
         N = A.shape[0] # Number of nodes on skeleton graph
         self.sigma_k = nn.ModuleDict({ # consider reducing num_layers to 2
-            'x': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
-            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n),
-            'z': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)
+            'x': nn.Linear(N*in_dim, self.n),
+            'y': nn.Linear(N*in_dim, self.n),
+            'z': nn.Linear(N*in_dim, self.n)
         }) if not rot_one_axis else nn.ModuleDict({
-            'y': MLP(num_layers=3, input_dim=N*in_dim, hidden_dim=hidden_dim, output_dim=self.n)})
+            'y': nn.Linear(N*in_dim, self.n)})
         
         self.swap_wt_identity = False
         self.threshold = 0.01
@@ -160,19 +160,19 @@ class SO2_GCN(torch.nn.Module):
         rot = torch.zeros([self.n,self.n])
 
         if axis == 'x':
-            eta_yz = torch.tensor([[1,0,0], # R_x_90
+            eta_yz = torch.tensor([[0,0,0], # R_x_90
                                     [0,0,-1],
                                     [0,1,0]])
             rot = eta_yz
         elif axis == 'z':
             eta_xy = torch.tensor([[0,-1,0], # R_z_90
                                     [1,0,0],
-                                    [0,0,1]])
+                                    [0,0,0]])
             rot = eta_xy
 
         else:
             eta_xz = torch.tensor([[0,0,-1], # R_y_90
-                                    [0,1,0],
+                                    [0,0,0],
                                     [1,0,0]])
             rot = eta_xz
 
