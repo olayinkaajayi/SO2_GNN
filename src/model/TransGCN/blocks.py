@@ -1,38 +1,32 @@
 import torch
 from torch import nn
 from src.model.TransGCN.so2_gnn import SO2_GCN
-from src.model.mlp import MLP
 import torch.nn.functional as F
 
 class SO2_GCN_Block(nn.Module):
     def __init__(self, in_channels, out_channels, A, so2_arg, **kwargs):
         super(SO2_GCN_Block, self).__init__()
 
-        self.heads = so2_arg['heads']
+        self.heads = 8 if (in_channels <= 64) else 16 #so2_arg['heads']
         angle_partitions = so2_arg['angle_partitions']
         rot_one_axis = so2_arg['rot_one_axis']
         self.in_channels = in_channels
         self.out_channels = out_channels
-        o_dim = out_channels//self.heads
-        o_dim = o_dim if o_dim >= 32 else 32 # set minimum head size to 32
         use_bias = True
 
         if self.in_channels > 3:
             self.proj = nn.ModuleList([nn.Linear(self.in_channels,3, bias=use_bias) for _ in range(self.heads)])
 
             self.gcn = nn.ModuleList( [
-                                    SO2_GCN(in_dim=3, hidden_dim=o_dim, A=A, angle_partitions=angle_partitions,
+                                    SO2_GCN(in_dim=3, A=A, angle_partitions=angle_partitions,
                                             rot_one_axis=rot_one_axis, **kwargs)
                                             for _ in range(self.heads)]
                                     )
 
-            # self.regroup = MLP(num_layers=1, input_dim=3*self.heads,
-            #                    hidden_dim=int(0.6*self.out_channels),
-            #                    output_dim=self.out_channels)
             self.regroup = nn.Linear(3*self.heads,self.out_channels, bias=use_bias)
         else:
             # consider setting rot_one_axis= True for the input feature i.e. in_dim=3
-            self.gcn = SO2_GCN(in_dim=3,hidden_dim=self.out_channels, A=A, angle_partitions=angle_partitions, rot_one_axis=rot_one_axis, **kwargs)
+            self.gcn = SO2_GCN(in_dim=3, A=A, angle_partitions=angle_partitions, rot_one_axis=rot_one_axis, **kwargs)
             self.regroup = nn.Linear(3,self.out_channels, bias=use_bias)
 
         self.register_buffer('A', A) # Adjacency matrix
@@ -109,67 +103,6 @@ class SO2_GCN_Block(nn.Module):
         
         return A_normalized.unsqueeze(0).unsqueeze(0).repeat(batch_size,1,1,1) # batch_size x 1 x N x N
             
-
-
-class Spatial_Basic_Block(nn.Module):
-    def __init__(self, in_channels, out_channels, max_graph_distance, A, edge_importance=True, adaptive=False):
-        super(Spatial_Basic_Block, self).__init__()
-
-        if in_channels == out_channels:
-            self.residual = lambda x: x
-        else:
-            self.residual = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, 1),
-                nn.BatchNorm2d(out_channels),
-            ) 
-
-        self.conv = SpatialGraphConv(in_channels, out_channels, max_graph_distance)
-        self.bn = nn.BatchNorm2d(out_channels)
-        self.relu = nn.ReLU(inplace=True)
-        if adaptive:
-            self.A = nn.Parameter(A[:max_graph_distance+1], requires_grad=True)
-        else:
-            self.register_buffer('A', A[:max_graph_distance+1])
-        self.edge = nn.Parameter(torch.ones_like(A[:max_graph_distance+1]), requires_grad=edge_importance)
-
-
-    def forward(self, x):
-
-        res_block = self.residual(x)
-
-        x = self.conv(x, self.A*self.edge)
-        x = self.bn(x)
-        x = self.relu(x + res_block)
-
-        return x
-
-class Temporal_Basic_Block(nn.Module):
-    def __init__(self, channels, temporal_window_size, stride=1):
-        super(Temporal_Basic_Block, self).__init__()
-
-        padding = ((temporal_window_size - 1) // 2, 0)
-
-        if stride == 1:
-            self.residual = lambda x: x
-        else:
-            self.residual = nn.Sequential(
-                nn.Conv2d(channels, channels, 1, (stride,1)),
-                nn.BatchNorm2d(channels),
-            )
-
-        self.conv = nn.Conv2d(channels, channels, (temporal_window_size,1), (stride,1), padding)
-        self.bn = nn.BatchNorm2d(channels)
-        self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, x, res_module):
-
-        res_block = self.residual(x)
-
-        x = self.conv(x)
-        x = self.bn(x)
-        x = self.relu(x + res_block + res_module)
-
-        return x
 
 class Temporal_MultiScale_Block(nn.Module):
     def __init__(self, out_channels, kernel_size=3, stride=1, dilations=[1,2], residual_kernel_size=1, **kwargs):
@@ -292,31 +225,6 @@ class ST_Person_Attention(nn.Module):
                 Q[joint][j] = 1.0/n
         return Q
     
-    
-# Thanks to YAN Sijie for the released code on Github (https://github.com/yysijie/st-gcn)
-class SpatialGraphConv(nn.Module):
-    def __init__(self, in_channels, out_channels, max_graph_distance):
-        super(SpatialGraphConv, self).__init__()
-
-        # spatial class number (distance = 0 for class 0, distance = 1 for class 1, ...)
-        self.s_kernel_size = max_graph_distance + 1
-
-        # weights of different spatial classes
-        self.gcn = nn.Conv2d(in_channels, out_channels*self.s_kernel_size, 1)
-
-    def forward(self, x, A):
-
-        # numbers in same class have same weight
-        x = self.gcn(x)
-
-        # divide nodes into different classes
-        n, kc, t, v = x.size()
-        x = x.view(n, self.s_kernel_size, kc//self.s_kernel_size, t, v)
-
-        # spatial graph convolution
-        x = torch.einsum('nkctv,kvw->nctw', (x, A[:self.s_kernel_size])).contiguous()
-
-        return x
     
 class TemporalConv(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, dilation=1):
