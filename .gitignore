@@ -31,3 +31,5 @@ zz_test.py
 *.zip
 *.skeleton
 
+# vscode
+.vscode
