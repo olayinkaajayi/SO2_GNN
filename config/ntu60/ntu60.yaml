@@ -5,7 +5,7 @@ debug: False
 pretrained_path:
 work_dir: ./workdir
 # Options are: exp or sigmoid
-experiment_name: (T1--> 18 Feb)
+experiment_name: (T2--> 25 Feb)
 
 # Data Loader
 dataset: ntu60
@@ -27,8 +27,8 @@ dataset_args:
   random_rot: True
   sort: False
   # Reduced dataset
-  load_part: False
-  load_portion: 1.0
+  load_part: True
+  load_portion: 0.4
   # Batch size
   train_batch_size: 64
   eval_batch_size: 128
@@ -42,8 +42,8 @@ model_args:
   reduct_ratio: 2
   use_gcn: False
   so2_arg:
-    heads: 4
-    angle_partitions: 12
+    heads: 0
+    angle_partitions: 6
     rot_one_axis: False
 
 
@@ -52,7 +52,7 @@ model_args:
 optimizer: SGD
 optimizer_args:
   SGD:
-    lr: 0.05
+    lr: 0.04
     momentum: 0.85
     nesterov: True
     weight_decay: 0.0002

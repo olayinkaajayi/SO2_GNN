@@ -15,13 +15,18 @@ class SO2_GCN_Block(nn.Module):
         use_bias = True
 
         if self.in_channels > 3:
-            self.proj = nn.ModuleList([nn.Linear(self.in_channels,3, bias=use_bias) for _ in range(self.heads)])
+            # Fuse all head projections into one weight: (heads, in_channels, 3)
+            # Applied via einsum → no loop needed
+            self.proj_weight = nn.Parameter(
+                torch.randn(self.heads, self.in_channels, 3) * (self.in_channels ** -0.5)
+            )
+            self.proj_bias = nn.Parameter(torch.zeros(self.heads, 3))
 
-            self.gcn = nn.ModuleList( [
-                                    SO2_GCN(in_dim=3, A=A, angle_partitions=angle_partitions,
-                                            rot_one_axis=rot_one_axis, **kwargs)
-                                            for _ in range(self.heads)]
-                                    )
+            self.gcn = SO2_GCN(in_dim=3, A=A,
+                   angle_partitions=angle_partitions,
+                   rot_one_axis=rot_one_axis,
+                   num_heads=self.heads,
+                   **kwargs)
 
             self.regroup = nn.Linear(3*self.heads,self.out_channels, bias=use_bias)
         else:
@@ -44,14 +49,14 @@ class SO2_GCN_Block(nn.Module):
         x = x.permute(0,2,3,1).contiguous() # shape: N*M,T,V,C
 
         if self.in_channels > 3: # 3 because we have 3D space: x,y,z
-            out = []
-            # May be able to avoid for loop here by putting the heads into the linear layers
-            for i in range(self.heads):
-                y = self.proj[i](x)
-                y = self.gcn[i](y)
-                out.append(y)
+            # ---- Parallelised projection across all heads ----
+            # proj_weight: [heads, C, 3]
+            y = torch.einsum('btvC, hCd -> btvhd', x, self.proj_weight) \
+                  + self.proj_bias # [N*M, T, V, heads, 3]
 
-            out = torch.concatenate(out, dim=-1).to(x.device)
+            out = self.gcn(y)          # [NM, T, V, H, 3]
+            NM, T, V, H, D = out.shape
+            out = out.reshape(NM, T, V, H * D)   # [NM, T, V, H*3]
             out = self.get_normalized_adjacency(self.A, batch_size=x.size(0))@self.regroup(out) # shape: N*M,T,V,C
         else:
             out = self.gcn(x) # shape: N*M,T,V,C
