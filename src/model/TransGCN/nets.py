@@ -13,13 +13,12 @@ class Input_Branch(nn.Module):
             Basic_Block(64, 64, A, so2_arg, use_att, **kwargs)
         ]
 
-        self.bn = nn.BatchNorm2d(num_channel)
         self.layers = nn.ModuleList(module_list)
 
     def forward(self, x):
 
         N, C, T, V, M = x.size()
-        x = self.bn(x.permute(0,4,1,2,3).contiguous().view(N*M, C, T, V))
+        x = x.permute(0,4,1,2,3).contiguous().view(N*M, C, T, V)
         for layer in self.layers:
             x = layer(x)
 
