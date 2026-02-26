@@ -6,6 +6,8 @@ from .lr_schedulers import *
 __scheduler = {
     'step': Step_Scheduler,
     'cosine': Cosine_Scheduler,
+    'cosine_WR': CosineWarmRestarts_Scheduler,
+    'cosine_WRD': CosineWarmRestartsDecay_Scheduler
 }
 
 def create(lr_scheduler, num_sample, **kwargs):
