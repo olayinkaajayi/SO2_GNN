@@ -10,11 +10,11 @@ dataset: ntu60
 dataset_args:
   graph: ntu60
   labeling: intra-inter
-  inter_link: pairwiseahqua.marine
+  inter_link: pairwise
   hop: 1
   dilation: 2
   # Feeder params
-  data_path: ./data/ntu_ready/NTU60_CV.npz
+  data_path: ./data/ntu_ready/NTU60_CS_aligned.npz
   window_size: 64
   p_interval:
     - 0.5
@@ -25,8 +25,8 @@ dataset_args:
   random_rot: True
   sort: False
   # Reduced dataset
-  load_part: True
-  load_portion: 0.4
+  load_part: False
+  load_portion: 1.0
   # Batch size
   train_batch_size: 64
   eval_batch_size: 128
