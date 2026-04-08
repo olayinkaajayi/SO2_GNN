@@ -5,7 +5,7 @@ debug: False
 pretrained_path:
 work_dir: ./workdir
 # Options are: exp or sigmoid
-experiment_name: (T2--> 26 Feb)
+experiment_name: (T2--> 24 Mar)
 
 # Data Loader
 dataset: ntu60
@@ -42,7 +42,7 @@ model_args:
   reduct_ratio: 2
   use_gcn: False
   so2_arg:
-    heads: 0
+    heads: 8
     angle_partitions: 6
     rot_one_axis: False
 
@@ -52,10 +52,10 @@ model_args:
 optimizer: SGD
 optimizer_args:
   SGD:
-    lr: 0.05 # or use 0.03
-    momentum: 0.9 # or use 0.95
+    lr: 0.01 # or use 0.03
+    momentum: 0.85 # or use 0.95
     nesterov: True
-    weight_decay: 0.0005 # or use 0.0003
+    weight_decay: 0.0002 # or use 0.0003
   Adam:
     lr: 0.1
     betas: [0.9,0.99]
@@ -63,15 +63,15 @@ optimizer_args:
 
 # Scheduler
 # step, cosine, cosine_WR, cosine_WRD
-lr_scheduler: step
+lr_scheduler: cosine
 scheduler_args:
   step:
-    max_epoch: 110
-    warm_up: 5
-    step_lr: [60,90]
+    max_epoch: 90
+    warm_up: 10
+    step_lr: [20,60,80]
 
   cosine:
-    max_epoch: 100
+    max_epoch: 80
     warm_up: 10
 
   cosine_WR:
