@@ -7,7 +7,7 @@ class SO2_GCN_Block(nn.Module):
     def __init__(self, in_channels, out_channels, A, so2_arg, **kwargs):
         super(SO2_GCN_Block, self).__init__()
 
-        self.heads = 8 if (in_channels <= 64) else 16 #so2_arg['heads']
+        self.heads = so2_arg['heads'] #8 if (in_channels <= 64) else 16
         angle_partitions = so2_arg['angle_partitions']
         rot_one_axis = so2_arg['rot_one_axis']
         self.in_channels = in_channels
