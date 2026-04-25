@@ -7,7 +7,7 @@ import logging
 
 class NTU_Feeder(Dataset):
     def __init__(self, phase, graph, data_path, p_interval=1, p_interval_test=1, random_shift=False,
-                 random_move=False, random_rot=False, window_size=-1, normalization=False,
+                 random_move=False, random_rot=None, window_size=-1, normalization=False,
                  vel=False, sort=False, load_part=False, load_portion=1.0, **kwargs):
         """
         :param data_path:
@@ -26,17 +26,34 @@ class NTU_Feeder(Dataset):
         self.random_move = random_move
         self.window_size = window_size
         self.p_interval = p_interval if phase == "train" else p_interval_test
-        self.random_rot = random_rot
+        self.random_rot = random_rot[0] if (random_rot is not None) and (phase == "train") else False
+        self.rand_rot_portion = random_rot[1]
         self.vel = vel
         self.load_part = load_part
         self.load_portion = load_portion
         self.load_data()
+
+        #### Rotation angle:
+        self.angle = 0.79 # in radians
+
+        if self.random_rot:
+            self.rotate_portion()
+            logging.info(f'\nRotating only {self.rand_rot_portion:.0%} of training data...')
+
 
         if sort:
             self.get_n_per_class()
             self.sort()
         if normalization:
             self.get_mean_map()
+
+    def rotate_portion(self):
+        """This script creates a list of indices to be rotated"""
+        N = len(self.data)
+        if self.rand_rot_portion != 1:
+            self.rotate_list = set((np.random.choice(a=range(N), size=int(N*self.rand_rot_portion), replace=False)))
+        else:
+            self.rotate_list = set(np.arange(N))
 
     def load_partial_data(self, strat=False):
          
@@ -131,8 +148,8 @@ class NTU_Feeder(Dataset):
         valid_frame_num = np.sum(data_numpy.sum(0).sum(-1).sum(-1) != 0)
         
         data_numpy = tools.valid_crop_resize(data_numpy, valid_frame_num, self.p_interval, self.window_size) # shape: C,T,V,M
-        if self.random_rot:
-            data_numpy = tools.random_rot(data_numpy) # shape: C,T,V,M
+        if self.random_rot and (index in self.rotate_list):
+            data_numpy = tools.random_rot(data_numpy, theta=self.angle) # shape: C,T,V,M
         if self.vel:
             data_numpy[:, :-1] = data_numpy[:, 1:] - data_numpy[:, :-1]
             data_numpy[:, -1] = 0
