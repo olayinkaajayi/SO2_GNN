@@ -9,6 +9,7 @@ class Input_Branch(nn.Module):
 
         module_list = [
             Basic_Block(num_channel, 64, A, use_att, **kwargs),
+            Basic_Block(64, 64, A, use_att, **kwargs),
             Basic_Block(64, 64, A, use_att, **kwargs)
         ]
 
@@ -40,7 +41,9 @@ class MPGCN(nn.Module):
         module_list = [
             Basic_Block(64, 128, A, stride=2, **kwargs),
             Basic_Block(128, 128, A, **kwargs),
+            Basic_Block(128, 128, A, **kwargs),
             Basic_Block(128, 256, A, stride=2, **kwargs),
+            Basic_Block(256, 256, A, **kwargs),
             Basic_Block(256, 256, A, **kwargs)
         ]
         self.main_stream = nn.ModuleList(module_list)
