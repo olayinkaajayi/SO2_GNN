@@ -32,7 +32,10 @@ class SO2_GCN(torch.nn.Module):
         self.threshold = 0.01
         
         self.partition = True # decide if we partition the angles or just learn across the full range.
-        self.strategy = 'circular-2' # options: 'default', 'circular', 'circular-2', 'tanh-1', 'tanh-2', 'sigmoid'
+        self.strategy = 'circular-2' # options: 'default', 'circular', 'circular-2', 'tanh-1', 'tanh-2', 'sigmoid', 
+                                     # 'one-free-param', --> used with angle_partitions=1, self.partition=False
+                                     # 'k-free-param' --> used with self.partition=False
+                                     # 'no-learned-param', 'bin-param'
 
 
     def forward(self, x):
@@ -122,6 +125,15 @@ class SO2_GCN(torch.nn.Module):
 
         elif self.strategy=='sigmoid':
             offset = torch.sigmoid(self.t_k[axis]) * modulus # range: [0, modulus)
+        
+        elif self.strategy=='k-free-param' or self.strategy=='one-free-param':
+            offset = self.t_k[axis].clamp(min=-torch.pi, max=torch.pi) # range: [-pi, pi]
+
+        elif self.strategy=='no-learned-param':
+            offset = 0.0
+
+        elif self.strategy=='bin-param':
+            offset = self.t_k[axis].clamp(min=0, max=modulus) # range: [0, modulus]
 
 
         learnt_t = prev_mod + offset
