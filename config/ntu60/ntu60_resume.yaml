@@ -23,7 +23,7 @@ dataset_args:
   p_interval_test:
     - 0.95
   vel: False
-  random_rot: True
+  random_rot: [False, 0.0]
   sort: False
   # Reduced dataset
   load_part: False
@@ -41,7 +41,7 @@ model_args:
   reduct_ratio: 2
   use_gcn: False
   so2_arg:
-    heads: 4
+    heads: 8
     angle_partitions: 6
     rot_one_axis: False
 

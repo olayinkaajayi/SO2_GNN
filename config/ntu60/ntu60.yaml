@@ -5,7 +5,7 @@ debug: False
 pretrained_path:
 work_dir: ./workdir
 # Options are: exp or sigmoid
-experiment_name: (T1--> 18 Feb)
+experiment_name: (T1--> 25 Apr)
 
 # Data Loader
 dataset: ntu60
@@ -24,7 +24,7 @@ dataset_args:
   p_interval_test:
     - 0.95
   vel: False
-  random_rot: True
+  random_rot: [True, 1.0]
   sort: False
   # Reduced dataset
   load_part: False
@@ -42,8 +42,8 @@ model_args:
   reduct_ratio: 2
   use_gcn: False
   so2_arg:
-    heads: 4
-    angle_partitions: 12
+    heads: 8
+    angle_partitions: 9
     rot_one_axis: False
 
 

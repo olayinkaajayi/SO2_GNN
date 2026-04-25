@@ -5,7 +5,7 @@ debug: False
 pretrained_path:
 work_dir: ./workdir
 # Options are: exp or sigmoid
-experiment_name: (T1--> 17 Feb)
+experiment_name: (T3--> 21 Apr)
 
 # Data Loader
 dataset: ntu60
@@ -24,11 +24,11 @@ dataset_args:
   p_interval_test:
     - 0.95
   vel: False
-  random_rot: True
+  random_rot: [False, 0.0]
   sort: False
   # Reduced dataset
-  load_part: True
-  load_portion: 0.4
+  load_part: False
+  load_portion: 1.0
   # Batch size
   train_batch_size: 64
   eval_batch_size: 128

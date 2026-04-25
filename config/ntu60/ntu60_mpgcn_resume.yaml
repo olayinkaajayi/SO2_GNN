@@ -24,7 +24,7 @@ dataset_args:
   p_interval_test:
     - 0.95
   vel: False
-  random_rot: True
+  random_rot: [False, 0.0]
   sort: False
   # Reduced dataset
   load_part: False
