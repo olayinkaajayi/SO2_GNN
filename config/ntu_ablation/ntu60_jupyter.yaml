@@ -1,0 +1,73 @@
+# Setting
+gpus: [0]
+seed: 1
+debug: False
+pretrained_path:
+work_dir: ./workdir/ntu_smv
+experiment_name: t_k & sigma_k values for Sigmoid zero_one_funs
+
+# Data Loader
+dataset: ntu60
+dataset_args:
+  graph: ntu60
+  labeling: intra-inter
+  inter_link: pairwise
+  hop: 1
+  dilation: 2
+  # Feeder params
+  data_path: ./data/ntu_ready/NTU60_CV_aligned.npz
+  window_size: 64
+  p_interval:
+    - 0.5
+    - 1
+  p_interval_test:
+    - 0.95
+  vel: False
+  random_rot: [False, 0.0]
+  sort: False
+  # Reduced dataset
+  load_part: False
+  load_portion: 1.0
+  # Batch size
+  train_batch_size: 64
+  eval_batch_size: 128
+
+# Model
+model_type: Trans-GCN
+model_args:
+  use_att: True
+  kernel_size: [3,2]
+  dilations: [2,3]
+  reduct_ratio: 2
+  use_gcn: False
+  so2_arg:
+    heads: 8
+    angle_partitions: 6
+    rot_one_axis: False
+
+
+# Optimizer
+# SGD, Adam
+optimizer: SGD
+optimizer_args:
+  SGD:
+    lr: 0.1
+    momentum: 0.9
+    nesterov: True
+    weight_decay: 0.0002
+  Adam:
+    lr: 0.1
+    betas: [0.9,0.99]
+    weight_decay: 0.0002
+
+# Scheduler
+# step, cosine
+lr_scheduler: step
+scheduler_args:
+  step:
+    max_epoch: 100
+    warm_up: 0
+    step_lr: [80,90]
+  cosine:
+    max_epoch: 100
+    warm_up: 5
