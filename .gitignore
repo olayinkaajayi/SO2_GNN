@@ -27,6 +27,10 @@ train.sh
 # environment test
 zz_test.py
 
+# ablation results
+zz_ablation_*
+zz_ablatn_images
+
 # dataset .zip
 *.zip
 *.skeleton
