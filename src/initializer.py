@@ -74,6 +74,15 @@ class Initializer():
 
     def init_dataloader(self):
         dataset_name = self.args.dataset
+        
+        # specify if aligned or unaligned
+        if self.args.alignment == "aligned":
+            self.args.dataset_args['data_path'] = f"./data/ntu_ready/NTU60_{self.args.case}_aligned.npz"
+            logging.info(f"Using {self.args.alignment} data.")
+        else:
+            self.args.dataset_args['data_path'] = f"./data/ntu_ready/NTU60_{self.args.case}.npz"
+            logging.info(f"Using {self.args.alignment} data.")
+
         dataset_args = self.args.dataset_args
         dataset_args['debug'] = self.args.debug
         self.train_batch_size = dataset_args['train_batch_size']
@@ -82,11 +91,11 @@ class Initializer():
             self.args.dataset, **dataset_args
         )
         self.train_loader = DataLoader(self.feeders['train'],
-            batch_size=self.train_batch_size, num_workers=4*len(self.args.gpus),
+            batch_size=self.train_batch_size, num_workers=4*(len(self.args.gpus) if len(self.args.gpus) != 0 else 1),
             pin_memory=True, shuffle=True, drop_last=True
         )
         self.eval_loader = DataLoader(self.feeders['eval'],
-            batch_size=self.eval_batch_size, num_workers=4*len(self.args.gpus),
+            batch_size=self.eval_batch_size, num_workers=4*(len(self.args.gpus) if len(self.args.gpus) != 0 else 1),
             pin_memory=True, shuffle=False, drop_last=False
         )
         logging.info('Dataset: {}'.format(self.args.dataset))

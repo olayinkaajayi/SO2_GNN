@@ -57,6 +57,8 @@ def init_parser():
     # Dataloader
     parser.add_argument('--dataset', '-d', type=str, default='', help='Select dataset')
     parser.add_argument('--dataset_args', default=dict(), help='Args for creating dataset')
+    parser.add_argument('--alignment', '-al', type=str, default='aligned', help='decide if aligned or unaligned')
+    parser.add_argument('--case', type=str, default='CV', help='decide if CV or CS')
 
     # Model
     parser.add_argument('--model_type', '-mt', type=str, default='', help='Args for creating model')
