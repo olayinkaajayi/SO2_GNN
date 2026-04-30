@@ -34,7 +34,7 @@ class NTU_Feeder(Dataset):
         self.load_data()
 
         #### Rotation angle:
-        self.angle = 0.79 # in radians
+        self.angle = 0.3 # in radians
 
         if self.random_rot:
             self.rotate_portion()
