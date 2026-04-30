@@ -5,7 +5,7 @@ debug: False
 pretrained_path:
 work_dir: ./workdir
 # Options are: exp or sigmoid
-experiment_name: (T1--> 25 Apr)
+experiment_name: (T1--> 30 Apr)
 
 # Data Loader
 dataset: ntu60
@@ -43,7 +43,7 @@ model_args:
   use_gcn: False
   so2_arg:
     heads: 8
-    angle_partitions: 9
+    angle_partitions: 6
     rot_one_axis: False
 
 
@@ -52,7 +52,7 @@ model_args:
 optimizer: SGD
 optimizer_args:
   SGD:
-    lr: 0.05
+    lr: 0.01
     momentum: 0.85
     nesterov: True
     weight_decay: 0.0002
