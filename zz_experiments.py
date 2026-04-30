@@ -15,6 +15,9 @@ with open(result_path, "r") as f:
 # Data
 proportion = np.array(data["angle"])
 proportion = np.rad2deg(proportion)
+# extra = np.array([[0.79], 
+#                    [84.22]
+#                    ])
 data_1 = np.array(data["GCNoT-AU"])
 data_2 = np.array(data["InfoGCN-AU"])
 
@@ -37,6 +40,7 @@ fig, ax = plt.subplots(figsize=(6.5, 4.5))
 # Plot
 ax.plot(proportion, data_1, marker='o', linestyle='-', label=r"GCN$o\mathcal{T}$ A/U")
 ax.plot(proportion, data_2, marker='^', linestyle='--', label='InfoGCN A/U')
+# ax.scatter(np.rad2deg(extra[0]), extra[1], marker='*', label=r"GCN$o\mathcal{T}$ (9 par) A/U")
 
 # Labels
 ax.set_xlabel(r'$\pm$ angle range (degrees)')
@@ -63,4 +67,4 @@ ax.legend(frameon=True)
 plt.tight_layout()
 
 # Save
-plt.savefig(osp.join(folder,"angles-cross_view_accuracy.png"), dpi=300, bbox_inches='tight')
+plt.savefig(osp.join(folder,"angles-cross_view_accuracy-extra.png"), dpi=300, bbox_inches='tight')
