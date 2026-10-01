@@ -1,11 +1,13 @@
 import logging
 
 from .ntu_reader import NTU_Reader
-from .ntu_transform import NTU_Seq_Transform
+from .ntu_transform import NTU_Seq_Transform, NTU120_Seq_Transform
 
 __generator = {
     'ntu60': NTU_Reader,
-    'ntu60-transform': NTU_Seq_Transform
+    'ntu120': NTU_Reader,
+    'ntu60-transform': NTU_Seq_Transform,
+    'ntu120-transform': NTU120_Seq_Transform
 }
 
 
