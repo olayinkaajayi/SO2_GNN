@@ -1,11 +1,13 @@
 import logging
 
 from .graphs import Graph
+from .kinetics400_feeder import Kinetics400Feeder
 from .ntu_feeder import NTU_Feeder
 
 __data_args = {
     'ntu60': {'class': 60, 'feeder': NTU_Feeder},
-    'ntu120': {'class': 120, 'feeder': NTU_Feeder}
+    'ntu120': {'class': 120, 'feeder': NTU_Feeder},
+    'kinetics400': {'class': 400, 'feeder': Kinetics400Feeder}
 }
 
 

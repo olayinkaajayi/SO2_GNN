@@ -20,19 +20,23 @@ class Graph():
             raise ValueError()
         self.labeling = labeling
 
-        if dataset != 'ntu60':
-
-            # get edges
-            self.num_node, self.num_person, self.edge, self.connect_joint, self.parts, self.center = self._get_edge()
-
-            # get adjacency matrix
-            self.A = self._get_adjacency()
-        else:
+        if (dataset == 'ntu60') or (dataset == 'ntu120'):
             # get edges
             self.num_node, self.num_person, self.edge, self.connect_joint, self.parts, self.center = self._get_ntu_edge()
 
             # get adjacency matrix
             self.A = self._get_ntu_adjacency()
+        else:
+
+            # get edges
+            self.num_node, self.num_person, self.edge, self.connect_joint, self.parts, self.center = self._get_edge()
+
+            # get adjacency matrix
+            if dataset == 'kinetics400':
+                self.A = self._get_kinetics_adjacency()
+            else:
+                self.A = self._get_adjacency()
+            
         
     def __str__(self):
         return self.A
@@ -103,6 +107,24 @@ class Graph():
                     np.array([num_node-2]), # object
                     np.array([num_node-1])
                 ]
+        elif graph_base == 'openpose18':
+            num_node = 18
+            neighbor_link = [
+                (4, 3), (3, 2), (7, 6), (6, 5), (13, 12), (12, 11),
+                (10, 9), (9, 8), (11, 5), (8, 2), (5, 1), (2, 1),
+                (0, 1), (15, 0), (14, 0), (17, 15), (16, 14),
+            ]
+            center = 1
+            connect_joint = np.array([
+                1, 1, 1, 2, 3, 1, 5, 6, 2, 8, 9, 5, 11, 12, 0, 0, 14, 15
+            ])
+            parts = [
+                np.array([5, 6, 7]),
+                np.array([2, 3, 4]),
+                np.array([11, 12, 13]),
+                np.array([8, 9, 10]),
+                np.array([0, 1, 14, 15, 16, 17]),
+            ]
         elif graph_base == 'openpose':
             num_node = 25
             neighbor_link = [(0, 1), (0, 15), (0, 16), (15, 17), (16, 18),
@@ -297,6 +319,13 @@ class Graph():
                 Dn[i, i] = Dl[i]**(-1)
         AD = np.dot(A, Dn)
         return AD
+
+    def _get_kinetics_adjacency(self):
+        adjacency = np.zeros((self.num_node, self.num_node))
+        for source, target in self.edge:
+            adjacency[target, source] = 1
+            adjacency[source, target] = 1
+        return self._normalize_digraph(adjacency)
     
 
     def _get_ntu_edge(self):

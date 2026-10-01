@@ -1,0 +1,58 @@
+# Kinetics-400 ST-GCN OpenPose-18 input; see KINETICS400.md.
+gpus: [0]
+seed: 1
+debug: False
+pretrained_path:
+work_dir: ./workdir
+experiment_name: kinetics400-openpose18
+
+# Data Loader
+dataset: kinetics400
+dataset_args:
+  graph: openpose18
+  labeling: spatial
+  part: body
+  data_path: ./data/kinetics400/kinetics400_openpose18.npz
+  window_size: 300
+  p_interval: [1.0]
+  p_interval_test: [1.0]
+  vel: False
+  train_batch_size: 64
+  eval_batch_size: 128
+
+# Model
+model_type: Trans-GCN
+model_args:
+  use_att: True
+  kernel_size: [3, 2]
+  dilations: [2, 3]
+  reduct_ratio: 2
+  use_gcn: False
+  so2_arg:
+    heads: 8
+    angle_partitions: 6
+    rot_one_axis: False
+
+# Optimizer
+optimizer: SGD
+optimizer_args:
+  SGD:
+    lr: 0.05
+    momentum: 0.85
+    nesterov: True
+    weight_decay: 0.0002
+  Adam:
+    lr: 0.1
+    betas: [0.9, 0.99]
+    weight_decay: 0.0002
+
+# Scheduler
+lr_scheduler: cosine
+scheduler_args:
+  step:
+    max_epoch: 70
+    warm_up: 10
+    step_lr: [20, 50]
+  cosine:
+    max_epoch: 80
+    warm_up: 10
