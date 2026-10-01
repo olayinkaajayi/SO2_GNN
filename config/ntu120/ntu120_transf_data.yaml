@@ -1,0 +1,19 @@
+# Setting
+seed: 1
+debug: False
+work_dir: ./workdir
+
+dataset: ntu120-transform
+dataset_args:
+  # Heuristics threshold
+  evaluations:
+            - CSet
+            - CSub
+
+  # Flags to select denoising techniques
+  transform_flag:
+    translation: True
+    orient: False
+  stat_path: ./data/ntu120
+  data_path: ./data
+  save_path: ./data/ntu_ready

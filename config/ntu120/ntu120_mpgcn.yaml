@@ -1,0 +1,69 @@
+# Setting
+gpus: [0]
+seed: 1
+debug: False
+pretrained_path:
+work_dir: ./workdir
+# Options are: exp or sigmoid
+experiment_name: (T3--> 8 May)
+
+# Data Loader
+dataset: ntu120
+dataset_args:
+  graph: ntu120
+  labeling: intra-inter
+  inter_link: pairwise
+  hop: 1
+  dilation: 2
+  # Feeder params
+  data_path: ./data/ntu_ready/NTU120_CSet_aligned.npz
+  window_size: 64
+  p_interval:
+    - 0.5
+    - 1
+  p_interval_test:
+    - 0.95
+  vel: False
+  random_rot: [False, 0.0]
+  sort: False
+  # Reduced dataset
+  load_part: False
+  load_portion: 1.0
+  # Batch size
+  train_batch_size: 64
+  eval_batch_size: 128
+
+# Model
+model_type: MPGCN
+model_args:
+  use_att: True
+  # ker: window, max_graph_dist
+  kernel_size: [3,0]
+  dilations: [2,3]
+  reduct_ratio: 2
+
+# Optimizer
+# SGD, Adam
+optimizer: SGD
+optimizer_args:
+  SGD:
+    lr: 0.1
+    momentum: 0.9
+    nesterov: True
+    weight_decay: 0.0002
+  Adam:
+    lr: 0.1
+    betas: [0.9,0.99]
+    weight_decay: 0.0002
+
+# Scheduler
+# step, cosine
+lr_scheduler: cosine
+scheduler_args:
+  step:
+    max_epoch: 70
+    warm_up: 10
+    step_lr: [20,50]
+  cosine:
+    max_epoch: 65
+    warm_up: 5

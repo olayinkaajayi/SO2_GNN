@@ -1,0 +1,22 @@
+# Setting
+seed: 1
+debug: False
+work_dir: ./workdir
+
+dataset: ntu120
+dataset_args:
+  # Heuristics threshold
+  thresholds:
+    noise_len_thres: 11
+    noise_spr_thres1: 0.8
+    noise_spr_thres2: 0.69754
+    noise_mot_thres_lo: 0.089925
+    noise_mot_thres_hi: 2
+
+  # Flags to select denoising techniques
+  denoise_flag:
+    length: True
+    spread: True
+  save_path: ./data
+  data_path: ./data/nturgbd_raw/raw_data120
+  raw_data_file: raw_skes_data.pkl
