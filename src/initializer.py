@@ -74,14 +74,19 @@ class Initializer():
 
     def init_dataloader(self):
         dataset_name = self.args.dataset
-        
-        # specify if aligned or unaligned
-        if self.args.alignment == "aligned":
-            self.args.dataset_args['data_path'] = f"./data/ntu_ready/NTU60_{self.args.case}_aligned.npz"
+
+        if dataset_name in ('ntu60', 'ntu120'):
+            # specify if aligned or unaligned
+            if self.args.alignment == "aligned":
+                self.args.dataset_args['data_path'] = f"./data/ntu_ready/{dataset_name.upper()}_{self.args.case}_aligned.npz"
+            else:
+                self.args.dataset_args['data_path'] = f"./data/ntu_ready/{dataset_name.upper()}_{self.args.case}.npz"
             logging.info(f"Using {self.args.alignment} data.")
-        else:
-            self.args.dataset_args['data_path'] = f"./data/ntu_ready/NTU60_{self.args.case}.npz"
-            logging.info(f"Using {self.args.alignment} data.")
+        elif dataset_name == 'kinetics400':
+            data_path = self.args.dataset_args.get('data_path')
+            if not data_path:
+                raise ValueError('dataset_args.data_path must point to a preprocessed Kinetics-400 NPZ archive')
+            logging.info('Using preprocessed Kinetics-400 data: %s', data_path)
 
         dataset_args = self.args.dataset_args
         dataset_args['debug'] = self.args.debug
