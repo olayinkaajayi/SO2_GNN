@@ -10,8 +10,7 @@ dataset: ntu60
 dataset_args:
   graph: ntu60
   labeling: intra-inter
-  inter_link: pairwiseahqua.marine
-  hop: 1
+  inter_link: pairwisehop: 1
   dilation: 2
   # Feeder params
   data_path: ./data/ntu_ready/NTU60_CV.npz
