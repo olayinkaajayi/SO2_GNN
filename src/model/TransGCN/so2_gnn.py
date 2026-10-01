@@ -12,13 +12,14 @@ class SO2_GCN(torch.nn.Module):
 
         self.n = angle_partitions # partitions of interval
         self.rot_one_axis = rot_one_axis # rotate across multiple axis
+        self.axis_of_rot = 'y'
 
         self.t_k = nn.ParameterDict({
             'x': nn.Parameter(torch.randn(self.n)),
             'y': nn.Parameter(torch.randn(self.n)),
             'z': nn.Parameter(torch.randn(self.n))
         }) if not rot_one_axis else nn.ParameterDict({
-            'y': nn.Parameter(torch.randn(self.n))}) 
+            self.axis_of_rot: nn.Parameter(torch.randn(self.n))}) 
         
         N = A.shape[0] # Number of nodes on skeleton graph
         self.sigma_k = nn.ModuleDict({ # consider reducing num_layers to 2
@@ -26,7 +27,7 @@ class SO2_GCN(torch.nn.Module):
             'y': nn.Linear(N*in_dim, self.n),
             'z': nn.Linear(N*in_dim, self.n)
         }) if not rot_one_axis else nn.ModuleDict({
-            'y': nn.Linear(N*in_dim, self.n)})
+            self.axis_of_rot: nn.Linear(N*in_dim, self.n)})
         
         self.swap_wt_identity = False
         self.threshold = 0.01
@@ -49,7 +50,7 @@ class SO2_GCN(torch.nn.Module):
             for i in range(len(ax)):
                 Rx = self.R_t(Rx, axis=ax[i])
         else:
-            Rx = self.R_t(x, axis='y')
+            Rx = self.R_t(x, axis=self.axis_of_rot)
 
         return Rx
 
