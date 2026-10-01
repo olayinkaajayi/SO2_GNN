@@ -114,7 +114,7 @@ def get_raw_skes_data():
 
     with open(save_data_pkl, 'wb') as fw:
         pickle.dump(raw_skes_data, fw, pickle.HIGHEST_PROTOCOL)
-    np.savetxt(osp.join(data_path, 'raw_data', 'frames_cnt.txt'), frames_cnt, fmt='%d')
+    np.savetxt(osp.join(data_path, raw_data, 'frames_cnt.txt'), frames_cnt, fmt='%d')
 
     print('Saved raw bodies data into %s' % save_data_pkl)
     print('Total frames: %d' % np.sum(frames_cnt))
@@ -126,22 +126,26 @@ if __name__ == '__main__':
     #
     # To-do: Download statistics folder content
     #
+    num_class = 120
     data_path = './data/nturgbd_raw'
     save_path = './data'
+    skeleton_folder = 'nturgb+d_skeletons' if num_class == 60 else 'nturgb+d_skeletons120'
+    ntu = 'ntu' if num_class == 60 else 'ntu120'
+    raw_data = 'raw_data' if num_class == 60 else 'raw_data120'
 
-    skes_path = osp.join(data_path,'nturgb+d_skeletons/')
-    stat_path = osp.join(save_path, 'ntu', 'statistics')
+    skes_path = osp.join(data_path,skeleton_folder)
+    stat_path = osp.join(save_path, ntu, 'statistics')
 
-    if not osp.exists(osp.join(data_path,'raw_data')):
-        os.makedirs(osp.join(data_path,'raw_data'))
+    if not osp.exists(osp.join(data_path,raw_data)):
+        os.makedirs(osp.join(data_path,raw_data))
 
     skes_name_file = osp.join(stat_path, 'skes_available_name.txt')
-    save_data_pkl = osp.join(data_path, 'raw_data', 'raw_skes_data.pkl')
-    frames_drop_pkl = osp.join(data_path, 'raw_data', 'frames_drop_skes.pkl')
+    save_data_pkl = osp.join(data_path, raw_data, 'raw_skes_data.pkl')
+    frames_drop_pkl = osp.join(data_path, raw_data, 'frames_drop_skes.pkl')
 
     frames_drop_logger = logging.getLogger('frames_drop')
     frames_drop_logger.setLevel(logging.INFO)
-    frames_drop_logger.addHandler(logging.FileHandler(osp.join(data_path, 'raw_data', 'frames_drop.log')))
+    frames_drop_logger.addHandler(logging.FileHandler(osp.join(data_path, raw_data, 'frames_drop.log')))
     frames_drop_skes = dict()
 
     get_raw_skes_data()
